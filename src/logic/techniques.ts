@@ -15,6 +15,11 @@ import { findSetDifferentialsHint } from './techniques/setDifferentials';
 import { findByAThreadHint } from './techniques/byAThread';
 import { findAtSeaHint } from './techniques/atSea';
 import { findByAThreadAtSeaHint } from './techniques/byAThreadAtSea';
+import { findKissingLsHint } from './techniques/kissingLs';
+import { findTheMHint } from './techniques/theM';
+import { findPressuredTsHint } from './techniques/pressuredTs';
+import { findFishHint } from './techniques/fish';
+import { findNRooksHint } from './techniques/nRooks';
 
 export interface Technique {
   id: TechniqueId;
@@ -98,11 +103,31 @@ export const techniquesInOrder: Technique[] = [
     name: 'By a Thread at Sea',
     findHint: findByAThreadAtSeaHint,
   },
-  { id: 'kissing-ls', name: 'Kissing Ls', findHint: () => null },
-  { id: 'the-m', name: 'The M', findHint: () => null },
-  { id: 'pressured-ts', name: 'Pressured Ts', findHint: () => null },
-  { id: 'fish', name: 'Fish', findHint: () => null },
-  { id: 'n-rooks', name: 'N Rooks', findHint: () => null },
+  {
+    id: 'kissing-ls',
+    name: 'Kissing Ls',
+    findHint: findKissingLsHint,
+  },
+  {
+    id: 'the-m',
+    name: 'The M',
+    findHint: findTheMHint,
+  },
+  {
+    id: 'pressured-ts',
+    name: 'Pressured Ts',
+    findHint: findPressuredTsHint,
+  },
+  {
+    id: 'fish',
+    name: 'Fish',
+    findHint: findFishHint,
+  },
+  {
+    id: 'n-rooks',
+    name: 'N Rooks',
+    findHint: findNRooksHint,
+  },
   { id: 'entanglement', name: 'Entanglement', findHint: () => null },
 ];
 
