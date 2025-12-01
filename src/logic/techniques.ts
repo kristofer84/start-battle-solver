@@ -4,6 +4,7 @@ import { findTrivialMarksHint } from './techniques/trivialMarks';
 import { findTwoByTwoHint } from './techniques/twoByTwo';
 import { findOneByNHint } from './techniques/oneByN';
 import { findExclusionHint } from './techniques/exclusion';
+import { findSimpleShapesHint } from './techniques/simpleShapes';
 
 export interface Technique {
   id: TechniqueId;
@@ -32,9 +33,13 @@ export const techniquesInOrder: Technique[] = [
     name: 'Exclusion',
     findHint: findExclusionHint,
   },
+  {
+    id: 'simple-shapes',
+    name: 'Simple Shapes',
+    findHint: findSimpleShapesHint,
+  },
   // Placeholders for more advanced techniques – return null for now.
   { id: 'pressured-exclusion', name: 'Pressured Exclusion', findHint: () => null },
-  { id: 'simple-shapes', name: 'Simple Shapes', findHint: () => null },
   { id: 'undercounting', name: 'Undercounting', findHint: () => null },
   { id: 'overcounting', name: 'Overcounting', findHint: () => null },
   { id: 'finned-counts', name: 'Finned Counts', findHint: () => null },
