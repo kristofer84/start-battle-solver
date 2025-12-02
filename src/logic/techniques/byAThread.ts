@@ -134,8 +134,8 @@ function testCellHypotheses(
   const starStartTime = performance.now();
   const starResult = countSolutions(testStateStar, {
     maxCount: 2,
-    timeoutMs: 300,  // Reduced from 1000ms - very aggressive
-    maxDepth: 20,    // Reduced from 50 - very aggressive
+    timeoutMs: 2000,  // Reduced from 1000ms - very aggressive
+    maxDepth: 100,    // Reduced from 50 - very aggressive
   });
   const starTime = performance.now() - starStartTime;
   if (starTime > 200) {
@@ -145,8 +145,8 @@ function testCellHypotheses(
   const crossStartTime = performance.now();
   const crossResult = countSolutions(testStateCross, {
     maxCount: 2,
-    timeoutMs: 300,  // Reduced from 1000ms - very aggressive
-    maxDepth: 20,    // Reduced from 50 - very aggressive
+    timeoutMs: 2000,  // Reduced from 1000ms - very aggressive
+    maxDepth: 100,    // Reduced from 50 - very aggressive
   });
   const crossTime = performance.now() - crossStartTime;
   if (crossTime > 200) {
