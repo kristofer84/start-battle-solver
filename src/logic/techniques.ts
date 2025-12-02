@@ -4,6 +4,7 @@ import { addLogEntry, store } from '../store/puzzleStore';
 import { findTrivialMarksHint } from './techniques/trivialMarks';
 import { findTwoByTwoHint } from './techniques/twoByTwo';
 import { findCrossPressureHint } from './techniques/crossPressure';
+import { findSharedRowColumnHint } from './techniques/sharedRowColumn';
 import { findOneByNHint } from './techniques/oneByN';
 import { findExclusionHint } from './techniques/exclusion';
 import { findPressuredExclusionHint } from './techniques/pressuredExclusion';
@@ -46,6 +47,11 @@ export const techniquesInOrder: Technique[] = [
     id: 'cross-pressure',
     name: 'Cross Pressure',
     findHint: findCrossPressureHint,
+  },
+  {
+    id: 'shared-row-column',
+    name: 'Shared Row/Column',
+    findHint: findSharedRowColumnHint,
   },
   {
     id: 'simple-shapes',

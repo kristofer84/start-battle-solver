@@ -5,6 +5,7 @@ export type TechniqueId =
   | 'trivial-marks'
   | 'two-by-two'
   | 'cross-pressure'
+  | 'shared-row-column'
   | 'one-by-n'
   | 'exclusion'
   | 'pressured-exclusion'

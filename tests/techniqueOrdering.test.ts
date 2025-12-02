@@ -12,10 +12,12 @@ describe('Technique Ordering', () => {
       'trivial-marks',
       'two-by-two',
       'cross-pressure',
+      'shared-row-column',
       'simple-shapes',
       'one-by-n',
       'exclusion',
       'pressured-exclusion',
+      'adjacent-exclusion',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -42,10 +44,12 @@ describe('Technique Ordering', () => {
       'trivial-marks',
       'two-by-two',
       'cross-pressure',
+      'shared-row-column',
       'simple-shapes',
       'one-by-n',
       'exclusion',
       'pressured-exclusion',
+      'adjacent-exclusion',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -70,8 +74,8 @@ describe('Technique Ordering', () => {
     }
   });
 
-  it('should have exactly 22 techniques registered', () => {
-    expect(techniquesInOrder).toHaveLength(22);
+  it('should have exactly 24 techniques registered', () => {
+    expect(techniquesInOrder).toHaveLength(24);
   });
 
   it('should have unique technique IDs', () => {
