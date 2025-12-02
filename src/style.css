@@ -255,7 +255,7 @@ body {
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.45);
   background: radial-gradient(circle at top left, rgba(30, 64, 175, 0.4), rgba(15, 23, 42, 0.95));
-  width: 400px;
+  width: 350px;
 }
 
 .board-with-labels {
