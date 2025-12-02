@@ -68,14 +68,6 @@ export function findAdjacentExclusionHint(state: PuzzleState): Hint | null {
             !(cell.row === testCell.row && cell.col === testCell.col)
           );
 
-          // Debug: log for region 7 and testCell {8,1}
-          if (regionId === 7 && testCell.row === 8 && testCell.col === 1) {
-            console.log(`[DEBUG] Region 7 check for testCell {8,1}:`);
-            console.log(`  Region needs ${regionNeedsStars} stars`);
-            console.log(`  Region empties (${regionEmpties.length}):`, regionEmpties.map(c => `{${c.row},${c.col}}`).join(', '));
-            console.log(`  Region empties without test (${regionEmptiesWithoutTest.length}):`, regionEmptiesWithoutTest.map(c => `{${c.row},${c.col}}`).join(', '));
-          }
-
           // Find all valid placements for the required stars, considering non-adjacency
           // For N stars, we need to find all sets of N non-adjacent cells
           const placementStartTime = performance.now();
@@ -96,14 +88,6 @@ export function findAdjacentExclusionHint(state: PuzzleState): Hint | null {
           }
 
           if (allPlacementSets.length > 0) {
-            // Debug: log placement sets for region 7 and testCell {8,1}
-            if (regionId === 7 && testCell.row === 8 && testCell.col === 1) {
-              console.log(`[DEBUG] Region 7: Found ${allPlacementSets.length} placement sets`);
-              allPlacementSets.forEach((set, idx) => {
-                console.log(`  Set ${idx}:`, set.map(c => `{${c.row},${c.col}}`).join(', '));
-              });
-            }
-            
             // For N stars, we need to check if testCell is adjacent to:
             // 1. All overlapping placements (cells that appear in multiple/all placement sets)
             // 2. PLUS all non-overlapping placements of at least one star
@@ -208,27 +192,6 @@ export function findAdjacentExclusionHint(state: PuzzleState): Hint | null {
                   return testCellNeighbors.has(cellKey);
                 });
               });
-
-            // Debug: log for region 7 and testCell {8,1}
-            if (regionId === 7 && testCell.row === 8 && testCell.col === 1) {
-              console.log(`[DEBUG] Region 7 testCell {8,1}:`);
-              console.log(`  Total placement sets: ${allPlacementSets.length}`);
-              console.log(`  Union of all placements (${unionOfAllPlacements.size}):`, Array.from(unionOfAllPlacements));
-              const setsWithAdjacent = allPlacementSets.filter(set => 
-                set.some(cell => testCellNeighbors.has(`${cell.row},${cell.col}`))
-              );
-              const setsWithoutAdjacent = allPlacementSets.filter(set => 
-                !set.some(cell => testCellNeighbors.has(`${cell.row},${cell.col}`))
-              );
-              console.log(`  Sets with at least one adjacent cell: ${setsWithAdjacent.length}`);
-              console.log(`  Sets without any adjacent cell: ${setsWithoutAdjacent.length}`);
-              if (setsWithoutAdjacent.length > 0) {
-                console.log(`  Sets without adjacent:`, setsWithoutAdjacent.map(set => 
-                  `[${set.map(c => `{${c.row},${c.col}}`).join(', ')}]`
-                ).join(', '));
-              }
-              console.log(`  Every placement set has adjacent cell: ${everyPlacementSetHasAdjacentCell}`);
-            }
 
             if (everyPlacementSetHasAdjacentCell) {
               // Check if testCell is in a different region
