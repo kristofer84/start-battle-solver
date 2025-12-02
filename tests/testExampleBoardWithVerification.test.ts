@@ -66,17 +66,6 @@ function applyHint(state: PuzzleState): { applied: boolean; cellsChanged: [numbe
       state.cells[cell.row][cell.col] = newValue;
       cellsChanged.push([cell.row, cell.col, newValue]);
     }
-
-    // Persist all applied hints for offline analysis/debugging
-    try {
-      fs.writeFileSync(
-        'vitest-example-hints.json',
-        JSON.stringify(hintsApplied, null, 2),
-        'utf-8',
-      );
-    } catch {
-      // Ignore logging errors – they shouldn't fail the test
-    }
   }
   return { applied: true, cellsChanged };
 }
@@ -241,6 +230,17 @@ describe('Example Board Solver with Verification', () => {
     const boardState = getBoardState(state);
     log(`Final stars: ${boardState.stars.length}`);
     log(`Final crosses: ${boardState.crosses.length}`);
+
+    // Persist all applied hints for offline analysis/debugging
+    try {
+      fs.writeFileSync(
+        'vitest-example-hints.json',
+        JSON.stringify(hintsApplied, null, 2),
+        'utf-8',
+      );
+    } catch {
+      // Ignore logging errors – they shouldn't fail the test
+    }
 
     const finalStars = boardState.stars;
     expect(finalStars.length).toBe(20);

@@ -10,10 +10,10 @@ describe('Technique Ordering', () => {
     const expectedOrder: TechniqueId[] = [
       'trivial-marks',
       'two-by-two',
+      'simple-shapes',
       'one-by-n',
       'exclusion',
       'pressured-exclusion',
-      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -39,10 +39,10 @@ describe('Technique Ordering', () => {
     const allTechniqueIds: TechniqueId[] = [
       'trivial-marks',
       'two-by-two',
+      'simple-shapes',
       'one-by-n',
       'exclusion',
       'pressured-exclusion',
-      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',
