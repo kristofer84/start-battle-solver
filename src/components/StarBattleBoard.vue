@@ -35,12 +35,33 @@ function cellRegionId(row: number, col: number): number {
 function isHighlightedCell(row: number, col: number): boolean {
   const h = props.hintHighlight;
   if (!h) return false;
-  if (h.cells?.some((c) => c.row === row && c.col === col)) return true;
-  if (h.rows?.includes(row)) return true;
-  if (h.cols?.includes(col)) return true;
+  // Only highlight individual cells, not entire rows/cols/regions
+  return h.cells?.some((c) => c.row === row && c.col === col) ?? false;
+}
+
+function getHighlightType(row: number, col: number): 'cells' | null {
+  const h = props.hintHighlight;
+  if (!h) return null;
+  // Only return type for individual cell highlights
+  if (h.cells?.some((c) => c.row === row && c.col === col)) return 'cells';
+  return null;
+}
+
+function isHighlightedRow(row: number): boolean {
+  const h = props.hintHighlight;
+  return h?.rows?.includes(row) ?? false;
+}
+
+function isHighlightedCol(col: number): boolean {
+  const h = props.hintHighlight;
+  return h?.cols?.includes(col) ?? false;
+}
+
+function isHighlightedRegion(row: number, col: number): boolean {
+  const h = props.hintHighlight;
+  if (!h) return false;
   const regionId = cellRegionId(row, col);
-  if (h.regions?.includes(regionId)) return true;
-  return false;
+  return h.regions?.includes(regionId) ?? false;
 }
 
 function getRegionBorderClasses(row: number, col: number): string[] {
@@ -118,13 +139,17 @@ function getViolationClasses(row: number, col: number): string[] {
         v-for="col in state.def.size"
         :key="`col-${col}`"
         class="board-label board-label-col"
+        :class="{ 'highlight-col-outline': isHighlightedCol(col - 1) }"
       >
         {{ col - 1 }}
       </div>
       
       <!-- Row labels and cells -->
       <template v-for="row in state.def.size" :key="`row-${row}`">
-        <div class="board-label board-label-row">
+        <div 
+          class="board-label board-label-row"
+          :class="{ 'highlight-row-outline': isHighlightedRow(row - 1) }"
+        >
           {{ row - 1 }}
         </div>
         <div
@@ -137,6 +162,18 @@ function getViolationClasses(row: number, col: number): string[] {
             ...getViolationClasses(row - 1, col - 1),
             {
               'highlight-cell': isHighlightedCell(row - 1, col - 1),
+              [`highlight-${getHighlightType(row - 1, col - 1)}`]: getHighlightType(row - 1, col - 1) !== null,
+              'highlight-row': isHighlightedRow(row - 1),
+              'highlight-row-top': isHighlightedRow(row - 1),
+              'highlight-row-bottom': isHighlightedRow(row - 1),
+              'highlight-row-left': isHighlightedRow(row - 1) && col === 1,
+              'highlight-row-right': isHighlightedRow(row - 1) && col === state.def.size,
+              'highlight-col': isHighlightedCol(col - 1),
+              'highlight-col-left': isHighlightedCol(col - 1),
+              'highlight-col-right': isHighlightedCol(col - 1),
+              'highlight-col-top': isHighlightedCol(col - 1) && row === 1,
+              'highlight-col-bottom': isHighlightedCol(col - 1) && row === state.def.size,
+              'highlight-region-border': isHighlightedRegion(row - 1, col - 1),
               star: state.cells[row - 1][col - 1] === 'star',
               cross: state.cells[row - 1][col - 1] === 'cross',
             },
@@ -166,6 +203,24 @@ function getViolationClasses(row: number, col: number): string[] {
               indexToCoords(index, state.def.size).row,
               indexToCoords(index, state.def.size).col,
             ),
+            [`highlight-${getHighlightType(
+              indexToCoords(index, state.def.size).row,
+              indexToCoords(index, state.def.size).col,
+            )}`]: getHighlightType(
+              indexToCoords(index, state.def.size).row,
+              indexToCoords(index, state.def.size).col,
+            ) !== null,
+            'highlight-row': isHighlightedRow(indexToCoords(index, state.def.size).row),
+            'highlight-row-top': isHighlightedRow(indexToCoords(index, state.def.size).row),
+            'highlight-row-bottom': isHighlightedRow(indexToCoords(index, state.def.size).row),
+            'highlight-row-left': isHighlightedRow(indexToCoords(index, state.def.size).row) && indexToCoords(index, state.def.size).col === 0,
+            'highlight-row-right': isHighlightedRow(indexToCoords(index, state.def.size).row) && indexToCoords(index, state.def.size).col === state.def.size - 1,
+            'highlight-col': isHighlightedCol(indexToCoords(index, state.def.size).col),
+            'highlight-col-left': isHighlightedCol(indexToCoords(index, state.def.size).col),
+            'highlight-col-right': isHighlightedCol(indexToCoords(index, state.def.size).col),
+            'highlight-col-top': isHighlightedCol(indexToCoords(index, state.def.size).col) && indexToCoords(index, state.def.size).row === 0,
+            'highlight-col-bottom': isHighlightedCol(indexToCoords(index, state.def.size).col) && indexToCoords(index, state.def.size).row === state.def.size - 1,
+            'highlight-region-border': isHighlightedRegion(indexToCoords(index, state.def.size).row, indexToCoords(index, state.def.size).col),
             star:
               state.cells[indexToCoords(index, state.def.size).row][
                 indexToCoords(index, state.def.size).col

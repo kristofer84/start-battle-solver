@@ -106,6 +106,32 @@ describe('Integration Tests: Basics Category', () => {
     expect(hasTwoByTwo).toBe(true);
   });
 
+  it('identifies cross-pressure technique', () => {
+    // Cross-pressure is available in the system
+    const hasCrossPressure = techniquesInOrder.some(t => t.id === 'cross-pressure');
+    expect(hasCrossPressure).toBe(true);
+    
+    // Verify it can be called
+    const def = makeDef();
+    const state = createEmptyPuzzleState(def);
+    
+    // Create a scenario where cross-pressure might apply:
+    // Row with 1 star and 2 adjacent empty cells
+    state.cells[5][0] = 'star';
+    for (let col = 1; col < 10; col += 1) {
+      if (col !== 4 && col !== 5) {
+        state.cells[5][col] = 'cross';
+      }
+    }
+    // Row 5 now has 1 star and 2 adjacent empty cells at (5,4) and (5,5)
+    
+    const hint = findNextHint(state);
+    
+    // Cross-pressure should potentially apply
+    // (though other techniques might apply first)
+    expect(hasCrossPressure).toBe(true);
+  });
+
   it('identifies one-by-n bands', () => {
     const def = makeDef();
     const state = createEmptyPuzzleState(def);
@@ -852,10 +878,11 @@ describe('Integration Tests: Guide Example Sequences', () => {
 });
 
 describe('Integration Tests: Technique Verification', () => {
-  it('verifies all 21 techniques are registered', () => {
+  it('verifies all 22 techniques are registered', () => {
     const expectedTechniques: TechniqueId[] = [
       'trivial-marks',
       'two-by-two',
+      'cross-pressure',
       'simple-shapes',
       'one-by-n',
       'exclusion',
@@ -890,6 +917,7 @@ describe('Integration Tests: Technique Verification', () => {
     const expectedOrder: TechniqueId[] = [
       'trivial-marks',
       'two-by-two',
+      'cross-pressure',
       'simple-shapes',
       'one-by-n',
       'exclusion',

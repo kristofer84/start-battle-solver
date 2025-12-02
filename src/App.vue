@@ -23,6 +23,8 @@ import {
   clearLog,
   setPreserveLog,
   setShowLog,
+  setRegionTheme,
+  type RegionTheme,
 } from './store/puzzleStore';
 import type { Coords, CellState } from './types/puzzle';
 import { validateState, validateRegions, getRuleViolations, isPuzzleComplete } from './logic/validation';
@@ -257,6 +259,27 @@ function applyImport() {
             :selected-id="store.selectedRegionId"
             @select-region="onSelectRegion"
           />
+          <div style="margin-top: 0.75rem">
+            <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
+              Region Theme (A-J)
+            </div>
+            <select
+              :value="store.regionTheme"
+              @change="setRegionTheme(($event.target as HTMLSelectElement).value as RegionTheme)"
+              style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer;"
+            >
+              <option value="default">Default</option>
+              <option value="pastel">Pastel</option>
+              <option value="vibrant">Vibrant</option>
+              <option value="monochrome">Monochrome</option>
+              <option value="ocean">Ocean</option>
+              <option value="forest">Forest</option>
+              <option value="sunset">Sunset</option>
+              <option value="neon">Neon</option>
+              <option value="warm">Warm</option>
+              <option value="cool">Cool</option>
+            </select>
+          </div>
           <div class="issues-list" v-if="store.issues.length">
             <div>Issues</div>
             <ul>
@@ -279,6 +302,27 @@ function applyImport() {
           mode="play"
           @cell-click="onCellClick"
         />
+        <div style="margin-top: 0.75rem">
+          <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
+            Region Theme (A-J)
+          </div>
+          <select
+            :value="store.regionTheme"
+            @change="setRegionTheme(($event.target as HTMLSelectElement).value as RegionTheme)"
+            style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer;"
+          >
+            <option value="default">Default</option>
+            <option value="pastel">Pastel</option>
+            <option value="vibrant">Vibrant</option>
+            <option value="monochrome">Monochrome</option>
+            <option value="ocean">Ocean</option>
+            <option value="forest">Forest</option>
+            <option value="sunset">Sunset</option>
+            <option value="neon">Neon</option>
+            <option value="warm">Warm</option>
+            <option value="cool">Cool</option>
+          </select>
+        </div>
         <div v-if="isPuzzleComplete(store.puzzle)" class="completion-status">
           Puzzle complete
         </div>

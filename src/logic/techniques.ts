@@ -3,6 +3,7 @@ import type { Hint, TechniqueId } from '../types/hints';
 import { addLogEntry } from '../store/puzzleStore';
 import { findTrivialMarksHint } from './techniques/trivialMarks';
 import { findTwoByTwoHint } from './techniques/twoByTwo';
+import { findCrossPressureHint } from './techniques/crossPressure';
 import { findOneByNHint } from './techniques/oneByN';
 import { findExclusionHint } from './techniques/exclusion';
 import { findPressuredExclusionHint } from './techniques/pressuredExclusion';
@@ -39,6 +40,11 @@ export const techniquesInOrder: Technique[] = [
     id: 'two-by-two',
     name: '2×2 Blocks',
     findHint: findTwoByTwoHint,
+  },
+  {
+    id: 'cross-pressure',
+    name: 'Cross Pressure',
+    findHint: findCrossPressureHint,
   },
   {
     id: 'simple-shapes',

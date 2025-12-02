@@ -19,6 +19,8 @@ export interface LogEntry {
   testedTechniques: TechniqueTest[];
 }
 
+export type RegionTheme = 'default' | 'pastel' | 'vibrant' | 'monochrome' | 'ocean' | 'forest' | 'sunset' | 'neon' | 'warm' | 'cool';
+
 interface StoreState {
   mode: Mode;
   selectionMode: SelectionMode;
@@ -33,6 +35,7 @@ interface StoreState {
   preservedLogEntries: LogEntry[];
   preserveLog: boolean;
   showLog: boolean;
+  regionTheme: RegionTheme;
 }
 
 const STORAGE_KEY = 'star-battle-10x10-v1';
@@ -43,6 +46,7 @@ interface StoredUIState {
   showRowColNumbers?: boolean;
   showLog?: boolean;
   preserveLog?: boolean;
+  regionTheme?: RegionTheme;
 }
 
 function loadInitialPuzzle(): PuzzleState {
@@ -124,7 +128,13 @@ export const store = reactive<StoreState>({
   preservedLogEntries: [],
   preserveLog: uiState.preserveLog ?? false,
   showLog: uiState.showLog ?? false,
+  regionTheme: uiState.regionTheme || 'default',
 });
+
+// Initialize theme on load
+if (typeof document !== 'undefined') {
+  document.documentElement.setAttribute('data-region-theme', store.regionTheme);
+}
 
 export function addLogEntry(entry: LogEntry) {
   store.logEntries.push(entry);
@@ -149,6 +159,7 @@ export function setPreserveLog(preserve: boolean) {
     showRowColNumbers: store.showRowColNumbers,
     showLog: store.showLog,
     preserveLog: store.preserveLog,
+    regionTheme: store.regionTheme,
   });
 }
 
@@ -159,6 +170,7 @@ export function setShowLog(show: boolean) {
     showRowColNumbers: store.showRowColNumbers,
     showLog: store.showLog,
     preserveLog: store.preserveLog,
+    regionTheme: store.regionTheme,
   });
 }
 
@@ -170,6 +182,7 @@ export function setMode(mode: Mode) {
     showRowColNumbers: store.showRowColNumbers,
     showLog: store.showLog,
     preserveLog: store.preserveLog,
+    regionTheme: store.regionTheme,
   });
 }
 
@@ -188,7 +201,23 @@ export function setShowRowColNumbers(show: boolean) {
     showRowColNumbers: store.showRowColNumbers,
     showLog: store.showLog,
     preserveLog: store.preserveLog,
+    regionTheme: store.regionTheme,
   });
+}
+
+export function setRegionTheme(theme: RegionTheme) {
+  store.regionTheme = theme;
+  saveUIState({
+    mode: store.mode,
+    showRowColNumbers: store.showRowColNumbers,
+    showLog: store.showLog,
+    preserveLog: store.preserveLog,
+    regionTheme: store.regionTheme,
+  });
+  // Update the root element's data attribute for CSS theme switching
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-region-theme', theme);
+  }
 }
 
 const MAX_HISTORY_SIZE = 100;

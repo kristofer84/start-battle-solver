@@ -4,6 +4,7 @@ export type TechniqueId =
   // 1. The basics
   | 'trivial-marks'
   | 'two-by-two'
+  | 'cross-pressure'
   | 'one-by-n'
   | 'exclusion'
   | 'pressured-exclusion'
