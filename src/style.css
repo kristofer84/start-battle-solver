@@ -1150,7 +1150,7 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 0.5rem;
   padding: 0.75rem;
-  max-height: 400px;
+  height: 400px;
   overflow-y: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 0.75rem;

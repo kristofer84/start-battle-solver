@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import StarBattleBoard from './components/StarBattleBoard.vue';
 import RegionPicker from './components/RegionPicker.vue';
 import ModeToolbar from './components/ModeToolbar.vue';
@@ -36,6 +36,7 @@ import { findNextHint } from './logic/techniques';
 
 const importText = ref('');
 const importError = ref<string | null>(null);
+const logPanelRef = ref<HTMLElement | null>(null);
 
 const violations = computed(() => getRuleViolations(store.puzzle));
 
@@ -212,6 +213,25 @@ function applyImport() {
   replacePuzzleFromImport(regions, cells);
   store.issues = validateRegions(store.puzzle.def);
 }
+
+// Auto-scroll log to bottom when new entries are added
+function scrollLogToBottom() {
+  nextTick(() => {
+    if (logPanelRef.value) {
+      logPanelRef.value.scrollTop = logPanelRef.value.scrollHeight;
+    }
+  });
+}
+
+// Watch for changes to log entries and auto-scroll
+watch(
+  () => [store.logEntries.length, store.preservedLogEntries.length, store.showLog],
+  () => {
+    if (store.showLog) {
+      scrollLogToBottom();
+    }
+  }
+);
 </script>
 
 <template>
@@ -349,9 +369,9 @@ function applyImport() {
     </div>
 
     <div class="card">
-      <HintPanel :hint="store.currentHint" />
+      <HintPanel v-if="store.mode === 'play'" :hint="store.currentHint" />
 
-      <div style="margin-top: 1rem">
+      <div v-if="store.mode === 'editor'" style="margin-top: 1rem">
         <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
           Paste 10×10 puzzle
         </div>
@@ -378,7 +398,7 @@ function applyImport() {
         </div>
       </div>
 
-      <div style="margin-top: 1.5rem">
+      <div v-if="store.mode === 'play'" style="margin-top: 1.5rem">
         <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem">
           <button
             type="button"
@@ -405,7 +425,7 @@ function applyImport() {
           </button>
         </div>
         
-        <div v-if="store.showLog" class="log-panel">
+        <div v-if="store.showLog" ref="logPanelRef" class="log-panel">
           <div v-if="store.preservedLogEntries.length > 0" class="log-section">
             <div class="log-section-header">Preserved log</div>
             <div class="log-entries">
