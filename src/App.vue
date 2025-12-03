@@ -360,6 +360,40 @@ function applyImport() {
   store.issues = validateRegions(store.puzzle.def);
 }
 
+function formatPuzzleString(): string {
+  const rows: string[] = [];
+  for (let r = 0; r < 10; r += 1) {
+    const tokens: string[] = [];
+    for (let c = 0; c < 10; c += 1) {
+      let regionId = store.puzzle.def.regions[r][c];
+      // Map region 10 to 0 for output
+      if (regionId === 10) regionId = 0;
+      
+      const cellState = store.puzzle.cells[r][c];
+      let token = String(regionId);
+      if (cellState === 'star') {
+        token += 's';
+      } else if (cellState === 'cross') {
+        token += 'x';
+      }
+      tokens.push(token);
+    }
+    rows.push(tokens.join(' '));
+  }
+  return rows.join('\n');
+}
+
+async function copyPuzzle() {
+  try {
+    const puzzleString = formatPuzzleString();
+    await navigator.clipboard.writeText(puzzleString);
+    // Optionally show a brief success message
+    importError.value = null;
+  } catch (err) {
+    importError.value = 'Failed to copy puzzle to clipboard.';
+  }
+}
+
 function loadPredefinedPuzzle() {
   if (!selectedPuzzle.value) return;
 
@@ -527,9 +561,12 @@ watch(
         </div>
         <textarea v-model="importText" rows="6"
           style="width: 100%; resize: vertical; border-radius: 0.5rem; border: 1px solid rgba(148,163,184,0.5); background:#020617; color:#e5e7eb; padding:0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:0.8rem;" />
-        <div style="margin-top: 0.4rem; display:flex; justify-content: space-between; align-items: center;">
+        <div style="margin-top: 0.4rem; display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
           <button type="button" class="btn secondary" @click="applyImport">
             Apply pasted puzzle
+          </button>
+          <button type="button" class="btn secondary" @click="copyPuzzle">
+            Copy current puzzle
           </button>
           <span v-if="importError" style="color:#f97373; font-size:0.78rem;">
             {{ importError }}
