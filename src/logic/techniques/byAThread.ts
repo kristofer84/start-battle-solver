@@ -1,4 +1,4 @@
-import type { PuzzleState, Coords, CellState } from '../../types/puzzle';
+import type { PuzzleState, Coords } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import { emptyCells, getCell, neighbors8 } from '../helpers';
 import { countSolutions } from '../search';
@@ -25,7 +25,7 @@ function nextHintId() {
 export function findByAThreadHint(state: PuzzleState): Hint | null {
   const { size } = state.def;
   const startTime = performance.now();
-  const MAX_TOTAL_TIME_MS = 2000; // Don't spend more than 2 seconds total
+  const MAX_TOTAL_TIME_MS = 20000; // Don't spend more than 2 seconds total
 
   // Find all empty cells
   const allCells: Coords[] = [];
@@ -42,7 +42,7 @@ export function findByAThreadHint(state: PuzzleState): Hint | null {
   if (empties.length === 0) return null;
 
   // Limit the number of cells to check to prevent freeze
-  const MAX_CELLS_TO_CHECK = 5; // Reduced from 20 - this technique is very expensive
+  const MAX_CELLS_TO_CHECK = 100; // Reduced from 20 - this technique is very expensive
   const cellsToCheck = empties.slice(0, MAX_CELLS_TO_CHECK);
   
   if (empties.length > MAX_CELLS_TO_CHECK) {
