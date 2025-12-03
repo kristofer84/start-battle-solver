@@ -29,6 +29,14 @@ export function findAdjacentExclusionHint(state: PuzzleState): Hint | null {
   let cellsChecked = 0;
   let regionsChecked = 0;
 
+  // Calculate all region IDs once (same for all test cells)
+  const allRegionIds = new Set<number>();
+  for (let rr = 0; rr < size; rr += 1) {
+    for (let cc = 0; cc < size; cc += 1) {
+      allRegionIds.add(state.def.regions[rr][cc]);
+    }
+  }
+
   // Check each empty cell to see if it should be excluded
   for (let r = 0; r < size; r += 1) {
     for (let c = 0; c < size; c += 1) {
@@ -43,12 +51,6 @@ export function findAdjacentExclusionHint(state: PuzzleState): Hint | null {
 
       // Check all regions FIRST: if a region needs stars and all possible placements are adjacent to testCell
       // We check ALL regions, not just the one containing testCell
-      const allRegionIds = new Set<number>();
-      for (let rr = 0; rr < size; rr += 1) {
-        for (let cc = 0; cc < size; cc += 1) {
-          allRegionIds.add(state.def.regions[rr][cc]);
-        }
-      }
 
       for (const regionId of allRegionIds) {
         regionsChecked++;
