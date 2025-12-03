@@ -80,6 +80,19 @@ const predefinedPuzzles = [
 7 6 6 6 3 3 3 4 8 9
 7 6 7 6 8 8 8 8 8 9
 7 7 7 8 8 9 9 9 9 9`
+  },
+  {
+    name: 'Puzzle 4',
+    data: `0 0 0 1 1 1 1 1 1 1
+0 0 1 1 2 2 2 3 3 4
+0 0 1 0 0 2 3 3 4 4
+0 0 1 0 0 2 3 4 4 5
+6 0 1 0 2 2 3 4 4 5
+6 0 0 0 7 7 3 3 4 5
+6 8 8 8 7 7 9 9 4 5
+6 8 8 8 7 7 7 9 9 5
+6 6 6 8 8 7 7 9 9 5
+6 6 8 8 7 7 9 9 9 9`
   }
 ];
 
@@ -100,7 +113,7 @@ function formatTechniqueTooltip(testedTechniques: Array<{ technique: string; tim
   }
   // Find the longest technique name for alignment
   const maxNameLength = Math.max(...testedTechniques.map(t => t.technique.length));
-  
+
   return testedTechniques.map(t => {
     const paddedName = t.technique.padEnd(maxNameLength);
     return `${paddedName}  ${t.timeMs.toFixed(2).padStart(8)}ms`;
@@ -157,23 +170,23 @@ function applyHint() {
 
 async function trySolve() {
   if (store.mode !== 'play') return;
-  
+
   const startTime = performance.now();
   const maxIterations = 500; // Safety limit
   let iteration = 0;
   let hintsApplied = 0;
-  
+
   // Clear log if not preserving
   if (!store.preserveLog && store.logEntries.length > 0) {
     clearLog();
   }
-  
+
   while (iteration < maxIterations) {
     // Check if puzzle is already complete
     if (isPuzzleComplete(store.puzzle)) {
       const endTime = performance.now();
       const totalTimeMs = endTime - startTime;
-      
+
       // Add summary log entry
       addLogEntry({
         timestamp: Date.now(),
@@ -182,19 +195,19 @@ async function trySolve() {
         message: `Solved puzzle in ${hintsApplied} step${hintsApplied !== 1 ? 's' : ''} (${totalTimeMs.toFixed(2)}ms total)`,
         testedTechniques: [],
       });
-      
+
       store.issues = [];
       store.currentHint = null;
       return;
     }
-    
+
     // Find next hint
     const hint = findNextHint(store.puzzle);
-    
+
     if (!hint) {
       const endTime = performance.now();
       const totalTimeMs = endTime - startTime;
-      
+
       // Add summary log entry
       addLogEntry({
         timestamp: Date.now(),
@@ -203,28 +216,28 @@ async function trySolve() {
         message: `Stopped: No more hints found. Applied ${hintsApplied} step${hintsApplied !== 1 ? 's' : ''} (${totalTimeMs.toFixed(2)}ms total)`,
         testedTechniques: [],
       });
-      
+
       store.currentHint = null;
       store.issues = ['No further logical hint found with current techniques.'];
       return;
     }
-    
+
     // Apply the hint immediately
     applyHintToState(hint);
     store.currentHint = null;
     store.issues = validateState(store.puzzle);
     hintsApplied++;
-    
+
     // Small delay to allow UI to update
     await new Promise(resolve => setTimeout(resolve, 10));
-    
+
     iteration++;
   }
-  
+
   // Reached max iterations
   const endTime = performance.now();
   const totalTimeMs = endTime - startTime;
-  
+
   // Add summary log entry
   addLogEntry({
     timestamp: Date.now(),
@@ -233,7 +246,7 @@ async function trySolve() {
     message: `Stopped: Reached maximum iterations (${maxIterations}). Applied ${hintsApplied} step${hintsApplied !== 1 ? 's' : ''} (${totalTimeMs.toFixed(2)}ms total)`,
     testedTechniques: [],
   });
-  
+
   store.currentHint = null;
   store.issues = ['Reached maximum iterations. Puzzle may be unsolvable with current techniques.'];
 }
@@ -349,7 +362,7 @@ function applyImport() {
 
 function loadPredefinedPuzzle() {
   if (!selectedPuzzle.value) return;
-  
+
   const puzzle = predefinedPuzzles.find(p => p.name === selectedPuzzle.value);
   if (!puzzle) return;
 
@@ -403,22 +416,12 @@ watch(
         </div>
       </div>
 
-      <ModeToolbar
-        :mode="store.mode"
-        :selection-mode="store.selectionMode"
-        :show-row-col-numbers="store.showRowColNumbers"
-        :can-undo="canUndo()"
-        :can-redo="canRedo()"
-        @change-mode="onChangeMode"
-        @change-selection="onChangeSelection"
-        @request-hint="requestHint"
-        @apply-hint="applyHint"
-        @try-solve="trySolve"
-        @clear="clearBoard"
-        @toggle-row-col-numbers="() => setShowRowColNumbers(!store.showRowColNumbers)"
-        @undo="handleUndo"
-        @redo="handleRedo"
-      />
+      <ModeToolbar :mode="store.mode" :selection-mode="store.selectionMode"
+        :show-row-col-numbers="store.showRowColNumbers" :can-undo="canUndo()" :can-redo="canRedo()"
+        @change-mode="onChangeMode" @change-selection="onChangeSelection" @request-hint="requestHint"
+        @apply-hint="applyHint" @try-solve="trySolve" @clear="clearBoard"
+        @toggle-row-col-numbers="() => setShowRowColNumbers(!store.showRowColNumbers)" @undo="handleUndo"
+        @redo="handleRedo" />
 
       <div v-if="store.isThinking" class="thinking-indicator">
         <span class="thinking-spinner">⏳</span>
@@ -427,31 +430,19 @@ watch(
 
       <div v-if="store.mode === 'editor'" style="margin-top: 0.6rem; display: flex; gap: 1rem">
         <div style="flex: 3">
-          <StarBattleBoard
-            :state="store.puzzle"
-            selection-mode="region"
-            :selected-region-id="store.selectedRegionId"
-            :hint-highlight="store.currentHint?.highlights ?? null"
-            :show-row-col-numbers="store.showRowColNumbers"
-            :violations="violations"
-            mode="editor"
-            @cell-click="onCellClick"
-          />
+          <StarBattleBoard :state="store.puzzle" selection-mode="region" :selected-region-id="store.selectedRegionId"
+            :hint-highlight="store.currentHint?.highlights ?? null" :show-row-col-numbers="store.showRowColNumbers"
+            :violations="violations" mode="editor" @cell-click="onCellClick" />
         </div>
         <div style="flex: 2">
-          <RegionPicker
-            :selected-id="store.selectedRegionId"
-            @select-region="onSelectRegion"
-          />
+          <RegionPicker :selected-id="store.selectedRegionId" @select-region="onSelectRegion" />
           <div style="margin-top: 0.75rem">
             <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
               Region Theme (A-J)
             </div>
-            <select
-              :value="store.regionTheme"
+            <select :value="store.regionTheme"
               @change="setRegionTheme(($event.target as HTMLSelectElement).value as RegionTheme)"
-              style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer;"
-            >
+              style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer;">
               <option value="default">Default</option>
               <option value="pastel">Pastel</option>
               <option value="vibrant">Vibrant</option>
@@ -476,25 +467,17 @@ watch(
       </div>
 
       <div v-else style="margin-top: 0.6rem">
-        <StarBattleBoard
-          :state="store.puzzle"
-          :selection-mode="store.selectionMode"
-          :selected-region-id="store.selectedRegionId"
-          :hint-highlight="store.currentHint?.highlights ?? null"
-          :show-row-col-numbers="store.showRowColNumbers"
-          :violations="violations"
-          mode="play"
-          @cell-click="onCellClick"
-        />
+        <StarBattleBoard :state="store.puzzle" :selection-mode="store.selectionMode"
+          :selected-region-id="store.selectedRegionId" :hint-highlight="store.currentHint?.highlights ?? null"
+          :show-row-col-numbers="store.showRowColNumbers" :violations="violations" mode="play"
+          @cell-click="onCellClick" />
         <div style="margin-top: 0.75rem">
           <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
             Region Theme (A-J)
           </div>
-          <select
-            :value="store.regionTheme"
+          <select :value="store.regionTheme"
             @change="setRegionTheme(($event.target as HTMLSelectElement).value as RegionTheme)"
-            style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer;"
-          >
+            style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer;">
             <option value="default">Default</option>
             <option value="pastel">Pastel</option>
             <option value="vibrant">Vibrant</option>
@@ -528,11 +511,8 @@ watch(
         <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
           Load predefined puzzle
         </div>
-        <select
-          v-model="selectedPuzzle"
-          @change="loadPredefinedPuzzle"
-          style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer; margin-bottom: 1rem;"
-        >
+        <select v-model="selectedPuzzle" @change="loadPredefinedPuzzle"
+          style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer; margin-bottom: 1rem;">
           <option value="">Select a puzzle...</option>
           <option v-for="puzzle in predefinedPuzzles" :key="puzzle.name" :value="puzzle.name">
             {{ puzzle.name }}
@@ -545,17 +525,10 @@ watch(
           Space-separated entries, each like <code>3</code>, <code>3s</code> (star), or <code>3x</code> (cross).
           Use digits 0–9; 0 will be mapped to region 10.
         </div>
-        <textarea
-          v-model="importText"
-          rows="6"
-          style="width: 100%; resize: vertical; border-radius: 0.5rem; border: 1px solid rgba(148,163,184,0.5); background:#020617; color:#e5e7eb; padding:0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:0.8rem;"
-        />
+        <textarea v-model="importText" rows="6"
+          style="width: 100%; resize: vertical; border-radius: 0.5rem; border: 1px solid rgba(148,163,184,0.5); background:#020617; color:#e5e7eb; padding:0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:0.8rem;" />
         <div style="margin-top: 0.4rem; display:flex; justify-content: space-between; align-items: center;">
-          <button
-            type="button"
-            class="btn secondary"
-            @click="applyImport"
-          >
+          <button type="button" class="btn secondary" @click="applyImport">
             Apply pasted puzzle
           </button>
           <span v-if="importError" style="color:#f97373; font-size:0.78rem;">
@@ -566,52 +539,33 @@ watch(
 
       <div v-if="store.mode === 'play'" style="margin-top: 1.5rem">
         <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem">
-          <button
-            type="button"
-            class="btn secondary"
-            @click="setShowLog(!store.showLog)"
-          >
+          <button type="button" class="btn secondary" @click="setShowLog(!store.showLog)">
             {{ store.showLog ? 'Hide' : 'Show' }} log
           </button>
-          <button
-            type="button"
-            class="btn secondary"
-            :class="{ active: store.preserveLog }"
-            @click="setPreserveLog(!store.preserveLog)"
-          >
+          <button type="button" class="btn secondary" :class="{ active: store.preserveLog }"
+            @click="setPreserveLog(!store.preserveLog)">
             Preserve log
           </button>
-          <button
-            v-if="store.showLog && (store.logEntries.length > 0 || store.preservedLogEntries.length > 0)"
-            type="button"
-            class="btn secondary"
-            @click="clearLog(); setPreserveLog(false);"
-          >
+          <button v-if="store.showLog && (store.logEntries.length > 0 || store.preservedLogEntries.length > 0)"
+            type="button" class="btn secondary" @click="clearLog(); setPreserveLog(false);">
             Clear log
           </button>
         </div>
-        
+
         <div v-if="store.showLog" ref="logPanelRef" class="log-panel">
           <div v-if="store.preservedLogEntries.length > 0" class="log-section">
             <div class="log-section-header">Preserved log</div>
             <div class="log-entries">
-              <div
-                v-for="(entry, index) in store.preservedLogEntries"
-                :key="`preserved-${index}`"
-                class="log-entry"
-              >
+              <div v-for="(entry, index) in store.preservedLogEntries" :key="`preserved-${index}`" class="log-entry">
                 <div class="log-header">
                   <span class="log-timestamp">{{ formatLogTimestamp(entry.timestamp) }}</span>
-                  <span 
-                    class="log-technique" 
-                    :title="formatTechniqueTooltip(entry.testedTechniques || [])"
-                  >
+                  <span class="log-technique" :title="formatTechniqueTooltip(entry.testedTechniques || [])">
                     {{ entry.technique }}
                   </span>
                   <span class="log-time">
                     ({{ entry.timeMs.toFixed(2) }}ms
                     <span v-if="entry.testedTechniques && entry.testedTechniques.length > 0">
-                      / {{ entry.testedTechniques.reduce((sum, t) => sum + t.timeMs, 0).toFixed(2) }}ms total
+                      / {{entry.testedTechniques.reduce((sum, t) => sum + t.timeMs, 0).toFixed(2)}}ms total
                     </span>)
                   </span>
                 </div>
@@ -619,29 +573,22 @@ watch(
               </div>
             </div>
           </div>
-          
+
           <div v-if="store.preservedLogEntries.length > 0 && store.logEntries.length > 0" class="log-splitter"></div>
-          
+
           <div v-if="store.logEntries.length > 0" class="log-section">
             <div class="log-section-header">Current log</div>
             <div class="log-entries">
-              <div
-                v-for="(entry, index) in store.logEntries"
-                :key="`current-${index}`"
-                class="log-entry"
-              >
+              <div v-for="(entry, index) in store.logEntries" :key="`current-${index}`" class="log-entry">
                 <div class="log-header">
                   <span class="log-timestamp">{{ formatLogTimestamp(entry.timestamp) }}</span>
-                  <span 
-                    class="log-technique" 
-                    :title="formatTechniqueTooltip(entry.testedTechniques || [])"
-                  >
+                  <span class="log-technique" :title="formatTechniqueTooltip(entry.testedTechniques || [])">
                     {{ entry.technique }}
                   </span>
                   <span class="log-time">
                     ({{ entry.timeMs.toFixed(2) }}ms
                     <span v-if="entry.testedTechniques && entry.testedTechniques.length > 0">
-                      / {{ entry.testedTechniques.reduce((sum, t) => sum + t.timeMs, 0).toFixed(2) }}ms total
+                      / {{entry.testedTechniques.reduce((sum, t) => sum + t.timeMs, 0).toFixed(2)}}ms total
                     </span>)
                   </span>
                 </div>
@@ -649,18 +596,16 @@ watch(
               </div>
             </div>
           </div>
-          
+
           <div v-if="store.logEntries.length === 0 && store.preservedLogEntries.length === 0" class="log-empty">
             No log entries yet. Request a hint to see solver progress.
           </div>
         </div>
       </div>
     </div>
-    
+
     <div class="app-footer">
       <span class="footer-text">{{ commitHash }} · {{ buildTime }}</span>
     </div>
   </div>
 </template>
-
-
