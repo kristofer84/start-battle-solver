@@ -25,7 +25,7 @@ function nextHintId() {
 export function findByAThreadHint(state: PuzzleState): Hint | null {
   const { size } = state.def;
   const startTime = performance.now();
-  const MAX_TOTAL_TIME_MS = 20000; // Don't spend more than 2 seconds total
+  const MAX_TOTAL_TIME_MS = 5000; // Don't spend more than 5 seconds total
 
   // Find all empty cells
   const allCells: Coords[] = [];
