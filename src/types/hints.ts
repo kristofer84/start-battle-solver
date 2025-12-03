@@ -13,6 +13,7 @@ export type TechniqueId =
   | 'exclusion'
   | 'pressured-exclusion'
   | 'adjacent-exclusion'
+  | 'forced-placement'
   | 'simple-shapes'
   // 2. Counting
   | 'undercounting'

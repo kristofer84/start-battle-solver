@@ -941,7 +941,7 @@ describe('Integration Tests: Guide Example Sequences', () => {
 });
 
 describe('Integration Tests: Technique Verification', () => {
-  it('verifies all 27 techniques are registered', () => {
+  it('verifies all 28 techniques are registered', () => {
     const expectedTechniques: TechniqueId[] = [
       'trivial-marks',
       'locked-line',
@@ -951,10 +951,11 @@ describe('Integration Tests: Technique Verification', () => {
       'cross-pressure',
       'five-crosses-five-empty',
       'shared-row-column',
-      'simple-shapes',
       'exclusion',
       'pressured-exclusion',
       'adjacent-exclusion',
+      'forced-placement',
+      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -972,7 +973,7 @@ describe('Integration Tests: Technique Verification', () => {
       'entanglement',
     ];
 
-    expect(techniquesInOrder.length).toBe(27);
+    expect(techniquesInOrder.length).toBe(28);
     
     const registeredIds = techniquesInOrder.map(t => t.id);
     
@@ -991,10 +992,11 @@ describe('Integration Tests: Technique Verification', () => {
       'cross-pressure',
       'five-crosses-five-empty',
       'shared-row-column',
-      'simple-shapes',
       'exclusion',
       'pressured-exclusion',
       'adjacent-exclusion',
+      'forced-placement',
+      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',

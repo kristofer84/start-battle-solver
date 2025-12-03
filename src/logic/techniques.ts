@@ -12,6 +12,7 @@ import { findExactFillHint } from './techniques/exactFill';
 import { findExclusionHint } from './techniques/exclusion';
 import { findPressuredExclusionHint } from './techniques/pressuredExclusion';
 import { findAdjacentExclusionHint } from './techniques/adjacentExclusion';
+import { findForcedPlacementHint } from './techniques/forcedPlacement';
 import { findSimpleShapesHint } from './techniques/simpleShapes';
 import { findUndercountingHint } from './techniques/undercounting';
 import { findOvercountingHint } from './techniques/overcounting';
@@ -95,6 +96,11 @@ export const techniquesInOrder: Technique[] = [
     id: 'adjacent-exclusion',
     name: 'Adjacent Exclusion',
     findHint: findAdjacentExclusionHint,
+  },
+  {
+    id: 'forced-placement',
+    name: 'Forced Placement',
+    findHint: findForcedPlacementHint,
   },
   {
     id: 'undercounting',
