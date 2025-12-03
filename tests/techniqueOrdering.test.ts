@@ -14,6 +14,7 @@ describe('Technique Ordering', () => {
       'adjacent-row-col',
       'two-by-two',
       'cross-pressure',
+      'five-crosses-five-empty',
       'shared-row-column',
       'simple-shapes',
       'one-by-n',
@@ -48,6 +49,7 @@ describe('Technique Ordering', () => {
       'adjacent-row-col',
       'two-by-two',
       'cross-pressure',
+      'five-crosses-five-empty',
       'shared-row-column',
       'simple-shapes',
       'one-by-n',
@@ -78,8 +80,8 @@ describe('Technique Ordering', () => {
     }
   });
 
-  it('should have exactly 26 techniques registered', () => {
-    expect(techniquesInOrder).toHaveLength(26);
+  it('should have exactly 27 techniques registered', () => {
+    expect(techniquesInOrder).toHaveLength(27);
   });
 
   it('should have unique technique IDs', () => {

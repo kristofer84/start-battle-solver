@@ -6,6 +6,7 @@ import { findLockedLineHint } from './techniques/lockedLine';
 import { findAdjacentRowColHint } from './techniques/adjacentRowCol';
 import { findTwoByTwoHint } from './techniques/twoByTwo';
 import { findCrossPressureHint } from './techniques/crossPressure';
+import { findFiveCrossesFiveEmptyHint } from './techniques/fiveCrossesFiveEmpty';
 import { findSharedRowColumnHint } from './techniques/sharedRowColumn';
 import { findOneByNHint } from './techniques/oneByN';
 import { findExclusionHint } from './techniques/exclusion';
@@ -59,6 +60,11 @@ export const techniquesInOrder: Technique[] = [
     id: 'cross-pressure',
     name: 'Cross Pressure',
     findHint: findCrossPressureHint,
+  },
+  {
+    id: 'five-crosses-five-empty',
+    name: 'Five Crosses Five Empty',
+    findHint: findFiveCrossesFiveEmptyHint,
   },
   {
     id: 'shared-row-column',
@@ -215,7 +221,7 @@ export function findNextHint(state: PuzzleState): Hint | null {
           timestamp: Date.now(),
           technique: techniqueName,
           timeMs: techTimeMs,
-          message: `${message} (placed ${hint.resultCells.length} ${hint.kind === 'place-star' ? 'star' : 'cross'}${hint.resultCells.length !== 1 ? 's' : ''})`,
+          message: `${message} (placed ${hint.resultCells.length} ${hint.kind === 'place-star' ? 'star' : 'cross'}${hint.resultCells.length !== 1 ? (hint.kind === 'place-star' ? 's' : 'es') : ''})`,
           testedTechniques: testedTechniques,
         });
         

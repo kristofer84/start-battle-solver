@@ -7,6 +7,7 @@ export type TechniqueId =
   | 'adjacent-row-col'
   | 'two-by-two'
   | 'cross-pressure'
+  | 'five-crosses-five-empty'
   | 'shared-row-column'
   | 'one-by-n'
   | 'exclusion'

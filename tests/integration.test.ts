@@ -132,6 +132,38 @@ describe('Integration Tests: Basics Category', () => {
     expect(hasCrossPressure).toBe(true);
   });
 
+  it('identifies five-crosses-five-empty technique', () => {
+    // Five-crosses-five-empty is available in the system
+    const hasFiveCrossesFiveEmpty = techniquesInOrder.some(t => t.id === 'five-crosses-five-empty');
+    expect(hasFiveCrossesFiveEmpty).toBe(true);
+    
+    // Verify it can be called
+    const def = makeDef();
+    const state = createEmptyPuzzleState(def);
+    
+    // Create a scenario where five-crosses-five-empty might apply:
+    // Row with 5 crosses and 5 adjacent empty cells
+    const row = 5;
+    // Place 5 crosses in row 5
+    for (let col = 0; col < 5; col++) {
+      state.cells[row][col] = 'cross';
+    }
+    // Cells (5, 5) through (5, 9) remain empty and are adjacent
+    
+    const hint = findNextHint(state);
+    
+    // Five-crosses-five-empty should potentially apply
+    // (though other techniques might apply first)
+    expect(hasFiveCrossesFiveEmpty).toBe(true);
+    
+    // If the hint is from five-crosses-five-empty, verify it's correct
+    if (hint && hint.technique === 'five-crosses-five-empty') {
+      expect(hint.kind).toBe('place-cross');
+      expect(hint.resultCells.length).toBeGreaterThan(0);
+      expect(hint.explanation.toLowerCase()).toContain('5 crosses');
+    }
+  });
+
   it('identifies shared-row-column technique', () => {
     // Shared-row-column is available in the system
     const hasSharedRowColumn = techniquesInOrder.some(t => t.id === 'shared-row-column');
@@ -909,13 +941,14 @@ describe('Integration Tests: Guide Example Sequences', () => {
 });
 
 describe('Integration Tests: Technique Verification', () => {
-  it('verifies all 26 techniques are registered', () => {
+  it('verifies all 27 techniques are registered', () => {
     const expectedTechniques: TechniqueId[] = [
       'trivial-marks',
       'locked-line',
       'adjacent-row-col',
       'two-by-two',
       'cross-pressure',
+      'five-crosses-five-empty',
       'shared-row-column',
       'simple-shapes',
       'one-by-n',
@@ -939,7 +972,7 @@ describe('Integration Tests: Technique Verification', () => {
       'entanglement',
     ];
 
-    expect(techniquesInOrder.length).toBe(26);
+    expect(techniquesInOrder.length).toBe(27);
     
     const registeredIds = techniquesInOrder.map(t => t.id);
     
@@ -955,6 +988,7 @@ describe('Integration Tests: Technique Verification', () => {
       'adjacent-row-col',
       'two-by-two',
       'cross-pressure',
+      'five-crosses-five-empty',
       'shared-row-column',
       'simple-shapes',
       'one-by-n',
