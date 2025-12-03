@@ -4,6 +4,7 @@ export type TechniqueId =
   // 1. The basics
   | 'trivial-marks'
   | 'locked-line'
+  | 'adjacent-row-col'
   | 'two-by-two'
   | 'cross-pressure'
   | 'shared-row-column'

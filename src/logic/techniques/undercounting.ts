@@ -21,7 +21,7 @@ import { countSolutions } from '../search';
 /**
  * Check if placing stars in all given cells would violate adjacency or 2×2 constraints
  */
-function canPlaceAllStars(state: PuzzleState, cells: Coords[]): boolean {
+export function canPlaceAllStars(state: PuzzleState, cells: Coords[]): boolean {
   const { size } = state.def;
   
   // Check for adjacency violations: no two stars can be adjacent (including diagonally)

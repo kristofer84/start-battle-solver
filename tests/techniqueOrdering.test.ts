@@ -11,6 +11,7 @@ describe('Technique Ordering', () => {
     const expectedOrder: TechniqueId[] = [
       'trivial-marks',
       'locked-line',
+      'adjacent-row-col',
       'two-by-two',
       'cross-pressure',
       'shared-row-column',
@@ -44,6 +45,7 @@ describe('Technique Ordering', () => {
     const allTechniqueIds: TechniqueId[] = [
       'trivial-marks',
       'locked-line',
+      'adjacent-row-col',
       'two-by-two',
       'cross-pressure',
       'shared-row-column',
@@ -76,8 +78,8 @@ describe('Technique Ordering', () => {
     }
   });
 
-  it('should have exactly 25 techniques registered', () => {
-    expect(techniquesInOrder).toHaveLength(25);
+  it('should have exactly 26 techniques registered', () => {
+    expect(techniquesInOrder).toHaveLength(26);
   });
 
   it('should have unique technique IDs', () => {
