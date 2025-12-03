@@ -75,6 +75,18 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
   // Strategy: Look for composite shapes formed by intersections of units
   // where the maximum star count has been reached, forcing remaining cells to be crosses
 
+  // Cache all region cells (same for all iterations since state doesn't change)
+  const allRegionIds = new Set<number>();
+  for (let r = 0; r < size; r += 1) {
+    for (let c = 0; c < size; c += 1) {
+      allRegionIds.add(state.def.regions[r][c]);
+    }
+  }
+  const regionCellsCache = new Map<number, Coords[]>();
+  for (const regionId of allRegionIds) {
+    regionCellsCache.set(regionId, regionCells(state, regionId));
+  }
+
   const rowIndices = Array.from({ length: size }, (_, i) => i);
   const colIndices = Array.from({ length: size }, (_, i) => i);
 
@@ -100,7 +112,7 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
       const regionIds = Array.from(regionSet);
       const outsideCells = uniqueCells(
         regionIds.flatMap((regionId) =>
-          regionCells(state, regionId).filter((cell) => !rowsSet.has(cell.row))
+          regionCellsCache.get(regionId)!.filter((cell) => !rowsSet.has(cell.row))
         )
       );
       const resultCells = outsideCells.filter((c) => getCell(state, c) === 'empty');
@@ -143,7 +155,7 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
       const regionIds = Array.from(regionSet);
       const outsideCells = uniqueCells(
         regionIds.flatMap((regionId) =>
-          regionCells(state, regionId).filter((cell) => !colsSet.has(cell.col))
+          regionCellsCache.get(regionId)!.filter((cell) => !colsSet.has(cell.col))
         )
       );
       const resultCells = outsideCells.filter((c) => getCell(state, c) === 'empty');
@@ -177,8 +189,12 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
     
     if (rowRemaining <= 0) continue;
     
+    // Calculate rowNonCrosses once per row (doesn't change in inner loop)
+    const rowNonCrosses = row.filter(c => getCell(state, c) !== 'cross');
+    
     for (let regionId = 1; regionId <= size; regionId += 1) {
-      const region = regionCells(state, regionId);
+      const region = regionCellsCache.get(regionId);
+      if (!region) continue;
       const regionStars = countStars(state, region);
       const regionRemaining = starsPerUnit - regionStars;
       
@@ -186,7 +202,6 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
       
       // Find intersection of row and region, excluding crosses
       // Crosses should not count to the areas for counting purposes
-      const rowNonCrosses = row.filter(c => getCell(state, c) !== 'cross');
       const regionNonCrosses = region.filter(c => getCell(state, c) !== 'cross');
       const shape = intersection(rowNonCrosses, regionNonCrosses);
       if (shape.length === 0) continue;
@@ -231,8 +246,12 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
     
     if (colRemaining <= 0) continue;
     
+    // Calculate colNonCrosses once per column (doesn't change in inner loop)
+    const colNonCrosses = col.filter(c => getCell(state, c) !== 'cross');
+    
     for (let regionId = 1; regionId <= size; regionId += 1) {
-      const region = regionCells(state, regionId);
+      const region = regionCellsCache.get(regionId);
+      if (!region) continue;
       const regionStars = countStars(state, region);
       const regionRemaining = starsPerUnit - regionStars;
       
@@ -240,7 +259,6 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
       
       // Find intersection of column and region, excluding crosses
       // Crosses should not count to the areas for counting purposes
-      const colNonCrosses = col.filter(c => getCell(state, c) !== 'cross');
       const regionNonCrosses = region.filter(c => getCell(state, c) !== 'cross');
       const shape = intersection(colNonCrosses, regionNonCrosses);
       if (shape.length === 0) continue;
@@ -286,17 +304,20 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
     
     if (rowRemaining <= 0) continue;
     
+    // Calculate rowNonCrosses once per row (doesn't change in inner loops)
+    const rowNonCrosses = row.filter(c => getCell(state, c) !== 'cross');
+    
     // Try pairs of regions
     for (let reg1 = 1; reg1 <= size; reg1 += 1) {
+      const region1 = regionCellsCache.get(reg1);
+      if (!region1) continue;
       for (let reg2 = reg1 + 1; reg2 <= size; reg2 += 1) {
-        const region1 = regionCells(state, reg1);
-        const region2 = regionCells(state, reg2);
+        const region2 = regionCellsCache.get(reg2);
+        if (!region2) continue;
         // Exclude crosses from regions for counting purposes
         const region1NonCrosses = region1.filter(c => getCell(state, c) !== 'cross');
         const region2NonCrosses = region2.filter(c => getCell(state, c) !== 'cross');
         const unionRegions = union(region1NonCrosses, region2NonCrosses);
-        
-        const rowNonCrosses = row.filter(c => getCell(state, c) !== 'cross');
         const shape = intersection(rowNonCrosses, unionRegions);
         if (shape.length === 0) continue;
         
