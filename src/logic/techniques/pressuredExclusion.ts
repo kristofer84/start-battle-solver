@@ -152,6 +152,11 @@ export function findPressuredExclusionHint(state: PuzzleState): Hint | null {
 
           const explanation = `If this cell contained a star, it would force ${result.reason}, making it impossible for ${result.affectedUnit} to reach ${starsPerUnit} stars. Therefore, this cell must be a cross.`;
 
+          // Ensure affectedUnitId is defined (it should be when breaksUnit is true)
+          if (result.affectedUnitId === undefined) {
+            continue;
+          }
+
           return {
             id: nextHintId(),
             kind: 'place-cross',
