@@ -3,3 +3,4 @@ vitest-example-*
 local
 .vscode
 **/dist
+**/output

@@ -1,13 +1,12 @@
-// @ts-nocheck
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
 
 // Get git commit hash (short)
 function getCommitHash(): string {
   try {
-    const { execSync } = require('child_process');
     return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
   } catch {
     return 'unknown';
@@ -26,7 +25,7 @@ function getBuildTime(): string {
 }
 
 // Plugin to copy icons from src/static to public
-function copyIconsPlugin() {
+function copyIconsPlugin(): { name: string; buildStart: () => void } {
   return {
     name: 'copy-icons',
     buildStart() {
