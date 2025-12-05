@@ -16,8 +16,9 @@ import { entanglementFiles } from '../../specs/entanglements';
 /**
  * Discover and load all entanglement pattern files
  * Uses explicit imports from the index file for reliable loading
+ * Note: This is synchronous since the JSON data is already imported
  */
-export async function loadEntanglementSpecs(): Promise<LoadedEntanglementSpec[]> {
+export function loadEntanglementSpecs(): LoadedEntanglementSpec[] {
   const startTime = performance.now();
   const specs: LoadedEntanglementSpec[] = [];
 

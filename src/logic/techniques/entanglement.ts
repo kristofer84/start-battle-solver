@@ -40,29 +40,35 @@ function nextHintId() {
  *   which forces (6,4) to be a star (region 5), which forces (3,4) to be a star (column 4)
  * - This contradiction means (3,4) must be a star
  */
-// Cache for loaded specs (lazy-loaded on first use)
-let cachedSpecs: Awaited<ReturnType<typeof loadEntanglementSpecs>> | null = null;
+// Cache for loaded specs (eagerly loaded at module initialization)
+let cachedSpecs: ReturnType<typeof loadEntanglementSpecs> | null = null;
+
+// Eagerly load specs synchronously at module initialization
+// Since JSON files are already imported, we can load them immediately
+try {
+  console.log(`[ENTANGLEMENT DEBUG] Eagerly loading entanglement specs at startup...`);
+  cachedSpecs = loadEntanglementSpecs();
+  console.log(`[ENTANGLEMENT DEBUG] Eager loading completed: ${cachedSpecs.length} specs cached`);
+} catch (error) {
+  console.warn(`[ENTANGLEMENT DEBUG] Failed to eagerly load entanglement specs:`, error);
+}
+
 let specsLoadPromise: Promise<void> | null = null;
 
 async function ensureSpecsLoaded(): Promise<void> {
+  // Specs should already be loaded eagerly, but keep this for backward compatibility
   if (cachedSpecs !== null) {
     console.log(`[ENTANGLEMENT DEBUG] Specs already loaded (${cachedSpecs.length} specs)`);
     return;
   }
-  if (specsLoadPromise) {
-    console.log(`[ENTANGLEMENT DEBUG] Specs loading already in progress, waiting...`);
-    await specsLoadPromise;
-    // After promise resolves, cachedSpecs should be set
-    console.log(`[ENTANGLEMENT DEBUG] Specs loading completed`);
-    return;
+  // Fallback: if somehow specs weren't loaded, load them now
+  console.log(`[ENTANGLEMENT DEBUG] Specs not cached, loading now...`);
+  try {
+    cachedSpecs = loadEntanglementSpecs();
+    console.log(`[ENTANGLEMENT DEBUG] Spec loading completed (${cachedSpecs.length} specs)`);
+  } catch (error) {
+    console.warn(`[ENTANGLEMENT DEBUG] Failed to load entanglement specs:`, error);
   }
-  console.log(`[ENTANGLEMENT DEBUG] Starting async spec loading...`);
-  specsLoadPromise = (async () => {
-    const specs = await loadEntanglementSpecs();
-    cachedSpecs = specs;
-    console.log(`[ENTANGLEMENT DEBUG] Async spec loading completed (${specs.length} specs)`);
-  })();
-  await specsLoadPromise;
 }
 
 export function findEntanglementHint(state: PuzzleState): Hint | null {
