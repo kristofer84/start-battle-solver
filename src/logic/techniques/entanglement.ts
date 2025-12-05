@@ -325,6 +325,7 @@ function findPatternBasedHint(
               ...forcedCells,
             ],
           },
+          patternId,
         };
       }
       
@@ -357,6 +358,7 @@ function findPatternBasedHint(
               ...forcedCells,
             ],
           },
+          patternId,
         };
       }
       

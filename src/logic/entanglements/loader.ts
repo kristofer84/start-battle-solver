@@ -322,3 +322,45 @@ export function filterSpecsByPuzzle(
   });
 }
 
+/**
+ * Find a pattern by ID across all loaded specs
+ * Returns the spec and pattern information if found
+ */
+export function findPatternById(
+  specs: LoadedEntanglementSpec[],
+  patternId: string
+): { spec: LoadedEntanglementSpec; patternIndex: number; patternType: 'pair' | 'triple-unconstrained' | 'triple-constrained' | 'constrained-unconstrained' | 'constrained-constrained' } | null {
+  for (const spec of specs) {
+    if (spec.pairData) {
+      for (let i = 0; i < spec.pairData.patterns.length; i++) {
+        if (getPairPatternId(spec.pairData.patterns[i]) === patternId) {
+          return { spec, patternIndex: i, patternType: 'pair' };
+        }
+      }
+    } else if (spec.tripleData) {
+      for (let i = 0; i < spec.tripleData.unconstrained_rules.length; i++) {
+        if (getTripleRuleId(spec.tripleData.unconstrained_rules[i]) === patternId) {
+          return { spec, patternIndex: i, patternType: 'triple-unconstrained' };
+        }
+      }
+      for (let i = 0; i < spec.tripleData.constrained_rules.length; i++) {
+        if (getTripleRuleId(spec.tripleData.constrained_rules[i]) === patternId) {
+          return { spec, patternIndex: i, patternType: 'triple-constrained' };
+        }
+      }
+    } else if (spec.constrainedData) {
+      for (let i = 0; i < spec.constrainedData.unconstrained_rules.length; i++) {
+        if (getConstrainedRuleId(spec.constrainedData.unconstrained_rules[i]) === patternId) {
+          return { spec, patternIndex: i, patternType: 'constrained-unconstrained' };
+        }
+      }
+      for (let i = 0; i < spec.constrainedData.constrained_rules.length; i++) {
+        if (getConstrainedRuleId(spec.constrainedData.constrained_rules[i]) === patternId) {
+          return { spec, patternIndex: i, patternType: 'constrained-constrained' };
+        }
+      }
+    }
+  }
+  return null;
+}
+

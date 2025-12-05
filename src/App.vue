@@ -4,6 +4,7 @@ import StarBattleBoard from './components/StarBattleBoard.vue';
 import RegionPicker from './components/RegionPicker.vue';
 import ModeToolbar from './components/ModeToolbar.vue';
 import HintPanel from './components/HintPanel.vue';
+import EntanglementViewer from './components/EntanglementViewer.vue';
 
 // Build-time information (injected by Vite at build time)
 const commitHash = __COMMIT_HASH__;
@@ -40,6 +41,8 @@ const importText = ref('');
 const importError = ref<string | null>(null);
 const logPanelRef = ref<HTMLElement | null>(null);
 const selectedPuzzle = ref<string>('');
+const showEntanglementViewer = ref(false);
+const selectedPatternId = ref<string | null>(null);
 
 watch(selectedPuzzle, () => {
   loadPredefinedPuzzle();
@@ -191,6 +194,11 @@ function onChangeSelection(mode: 'region' | 'star' | 'cross' | 'erase') {
 
 function onSelectRegion(id: number) {
   setSelectedRegion(id);
+}
+
+function onPatternClick(patternId: string) {
+  selectedPatternId.value = patternId;
+  showEntanglementViewer.value = true;
 }
 
 function requestHint() {
@@ -584,7 +592,15 @@ watch(
     </div>
 
     <div class="card">
-      <HintPanel v-if="store.mode === 'play'" :hint="store.currentHint" />
+      <HintPanel v-if="store.mode === 'play'" :hint="store.currentHint" @pattern-click="onPatternClick" />
+
+      <div v-if="store.mode === 'editor' || store.mode === 'play'" style="margin-top: 1rem">
+        <div v-if="store.mode === 'editor'" style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem">
+          <button type="button" class="btn secondary" @click="showEntanglementViewer = !showEntanglementViewer">
+            {{ showEntanglementViewer ? 'Hide' : 'Show' }} entanglement patterns
+          </button>
+        </div>
+      </div>
 
       <div v-if="store.mode === 'editor'" style="margin-top: 1rem">
         <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
@@ -622,6 +638,9 @@ watch(
 
       <div v-if="store.mode === 'play'" style="margin-top: 1.5rem">
         <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem">
+          <button type="button" class="btn secondary" @click="showEntanglementViewer = !showEntanglementViewer">
+            {{ showEntanglementViewer ? 'Hide' : 'Show' }} entanglement patterns
+          </button>
           <button type="button" class="btn secondary" @click="setShowLog(!store.showLog)">
             {{ store.showLog ? 'Hide' : 'Show' }} log
           </button>
@@ -685,6 +704,10 @@ watch(
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-if="showEntanglementViewer" class="card">
+      <EntanglementViewer :selected-pattern-id="selectedPatternId" @pattern-selected="selectedPatternId = $event" />
     </div>
 
     <div class="app-footer">

@@ -1,10 +1,50 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { Hint } from '../types/hints';
 import { techniqueNameById } from '../logic/techniques';
 
 const props = defineProps<{
   hint: Hint | null;
 }>();
+
+const emit = defineEmits<{
+  (e: 'patternClick', patternId: string): void;
+}>();
+
+function extractPatternId(explanation: string): string | null {
+  const match = explanation.match(/\[([a-f0-9]{6})\]/);
+  return match ? match[1] : null;
+}
+
+function onPatternIdClick(patternId: string) {
+  emit('patternClick', patternId);
+}
+
+const explanationParts = computed(() => {
+  if (!props.hint) return [];
+  const explanation = props.hint.explanation;
+  const parts: Array<{ text: string; isPatternId: boolean }> = [];
+  const patternIdRegex = /\[([a-f0-9]{6})\]/g;
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = patternIdRegex.exec(explanation)) !== null) {
+    // Add text before the pattern ID
+    if (match.index > lastIndex) {
+      parts.push({ text: explanation.substring(lastIndex, match.index), isPatternId: false });
+    }
+    // Add the pattern ID
+    parts.push({ text: match[1], isPatternId: true });
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add remaining text
+  if (lastIndex < explanation.length) {
+    parts.push({ text: explanation.substring(lastIndex), isPatternId: false });
+  }
+  
+  return parts;
+});
 </script>
 
 <template>
@@ -29,7 +69,15 @@ const props = defineProps<{
 
     <div v-else>
       <p style="font-size: 0.88rem; line-height: 1.4">
-        {{ hint.explanation }}
+        <template v-for="(part, idx) in explanationParts" :key="idx">
+          <span v-if="part.isPatternId" 
+            @click="onPatternIdClick(part.text)"
+            style="color: #60a5fa; cursor: pointer; text-decoration: underline;"
+            :title="`Click to view pattern ${part.text}`">
+            [{{ part.text }}]
+          </span>
+          <span v-else>{{ part.text }}</span>
+        </template>
       </p>
       <div class="hint-legend">
         Visual highlights:

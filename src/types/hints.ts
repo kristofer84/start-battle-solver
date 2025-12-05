@@ -50,6 +50,7 @@ export interface Hint {
   resultCells: Coords[];
   explanation: string;
   highlights?: HintHighlight;
+  patternId?: string; // For entanglement hints: the pattern ID that was matched
 }
 
 
