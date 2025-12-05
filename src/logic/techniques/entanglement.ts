@@ -163,6 +163,18 @@ export function findEntanglementHint(state: PuzzleState): Hint | null {
           
           console.log(`[ENTANGLEMENT DEBUG] ${validForcedCells.length} valid forced cell(s) after filtering`);
 
+          // Separate stars and crosses - hints can only have one kind
+          const starCells = validForcedCells.filter((fc) => fc.kind === 'place-star');
+          const crossCells = validForcedCells.filter((fc) => fc.kind === 'place-cross');
+
+          // Prioritize stars over crosses (stars are more constrained)
+          const cellsToReturn = starCells.length > 0 ? starCells : crossCells;
+          const hintKind = cellsToReturn[0].kind;
+
+          if (starCells.length > 0 && crossCells.length > 0) {
+            console.log(`[ENTANGLEMENT DEBUG] Mixed kinds detected: ${starCells.length} star(s), ${crossCells.length} cross(es). Returning stars only.`);
+          }
+
           const regions = new Set<number>();
           const rows = new Set<number>();
           const cols = new Set<number>();
@@ -178,9 +190,9 @@ export function findEntanglementHint(state: PuzzleState): Hint | null {
 
           return {
             id: nextHintId(),
-            kind: validForcedCells[0].kind,
+            kind: hintKind,
             technique: 'entanglement',
-            resultCells: validForcedCells.map((fc) => fc.cell),
+            resultCells: cellsToReturn.map((fc) => fc.cell),
             explanation: `Entanglement: ${unitDesc1} and ${unitDesc2} have limited placement options that interact. When these constraints are combined, specific cells are forced.`,
             highlights: {
               cells: [
@@ -235,6 +247,18 @@ export function findEntanglementHint(state: PuzzleState): Hint | null {
             
             console.log(`[ENTANGLEMENT DEBUG] ${validForcedCells.length} valid forced cell(s) from triplet after filtering`);
 
+            // Separate stars and crosses - hints can only have one kind
+            const starCells = validForcedCells.filter((fc) => fc.kind === 'place-star');
+            const crossCells = validForcedCells.filter((fc) => fc.kind === 'place-cross');
+
+            // Prioritize stars over crosses (stars are more constrained)
+            const cellsToReturn = starCells.length > 0 ? starCells : crossCells;
+            const hintKind = cellsToReturn[0].kind;
+
+            if (starCells.length > 0 && crossCells.length > 0) {
+              console.log(`[ENTANGLEMENT DEBUG] Mixed kinds detected: ${starCells.length} star(s), ${crossCells.length} cross(es). Returning stars only.`);
+            }
+
             const regions = new Set<number>();
             const rows = new Set<number>();
             const cols = new Set<number>();
@@ -249,9 +273,9 @@ export function findEntanglementHint(state: PuzzleState): Hint | null {
 
             return {
               id: nextHintId(),
-              kind: validForcedCells[0].kind,
+              kind: hintKind,
               technique: 'entanglement',
-              resultCells: validForcedCells.map((fc) => fc.cell),
+              resultCells: cellsToReturn.map((fc) => fc.cell),
               explanation: `Entanglement: ${unitDescs} have limited placement options that interact. When these constraints are combined, specific cells are forced.`,
               highlights: {
                 cells: [
@@ -564,6 +588,12 @@ function analyzeEntanglement(
     const [row, col] = cellKey.split(',').map(Number);
     const cell = { row, col };
 
+    // Skip if cell is already occupied (star or cross)
+    const cellState = getCell(state, cell);
+    if (cellState !== 'empty') {
+      continue;
+    }
+
     // Test hypothesis: what if this cell is NOT a star?
     const testState = simulateCross(state, cell);
 
@@ -601,6 +631,12 @@ function analyzeEntanglement(
   for (const cell of uniqueCells) {
     // Skip if already identified as forced star
     if (forcedCells.some((fc) => fc.cell.row === cell.row && fc.cell.col === cell.col)) {
+      continue;
+    }
+
+    // Skip if cell is already occupied (star or cross)
+    const cellState = getCell(state, cell);
+    if (cellState !== 'empty') {
       continue;
     }
 
@@ -737,21 +773,42 @@ function filterValidForcedCells(state: PuzzleState, forcedCells: ForcedCell[]): 
   const starCells = forcedCells.filter((fc) => fc.kind === 'place-star');
   const crossCells = forcedCells.filter((fc) => fc.kind === 'place-cross');
 
-  // Crosses can always be placed together, no adjacency issues
-  const validCells: ForcedCell[] = [...crossCells];
+  const validCells: ForcedCell[] = [];
 
-  // For stars, check adjacency
+  // Filter crosses: can't place a cross on a cell that's already a star
+  for (const crossCell of crossCells) {
+    const cellState = getCell(state, crossCell.cell);
+    if (cellState === 'star') {
+      console.log(`[ENTANGLEMENT DEBUG] Filtering out cross at (${crossCell.cell.row},${crossCell.cell.col}) - cell is already a star`);
+      continue;
+    }
+    // Crosses can be placed on empty cells or cells that are already crosses
+    validCells.push(crossCell);
+  }
+
+  // For stars, check adjacency and occupancy
   if (starCells.length === 0) {
     return validCells;
   }
 
   if (starCells.length === 1) {
-    // Single star - check if it's adjacent to existing stars
+    // Single star - check if cell is already occupied and if it's adjacent to existing stars
     const star = starCells[0].cell;
+    const cellState = getCell(state, star);
+    
+    // Can't place a star on a cell that's already a star or cross
+    if (cellState !== 'empty') {
+      console.log(`[ENTANGLEMENT DEBUG] Filtering out star at (${star.row},${star.col}) - cell is already ${cellState}`);
+      return validCells;
+    }
+    
+    // Check if it's adjacent to existing stars
     const neighbors = neighbors8(star, state.def.size);
     const hasAdjacentStar = neighbors.some((nb) => getCell(state, nb) === 'star');
     if (!hasAdjacentStar) {
       validCells.push(starCells[0]);
+    } else {
+      console.log(`[ENTANGLEMENT DEBUG] Filtering out star at (${star.row},${star.col}) - adjacent to existing star`);
     }
     return validCells;
   }
@@ -760,6 +817,13 @@ function filterValidForcedCells(state: PuzzleState, forcedCells: ForcedCell[]): 
   // Only include stars that are not adjacent to any other forced star AND not adjacent to existing stars
   for (const starCell of starCells) {
     const star = starCell.cell;
+    
+    // Check if cell is already occupied
+    const cellState = getCell(state, star);
+    if (cellState !== 'empty') {
+      console.log(`[ENTANGLEMENT DEBUG] Filtering out star at (${star.row},${star.col}) - cell is already ${cellState}`);
+      continue;
+    }
     
     // Check if this star is adjacent to any other forced star
     let isAdjacentToOtherForcedStar = false;
@@ -781,6 +845,8 @@ function filterValidForcedCells(state: PuzzleState, forcedCells: ForcedCell[]): 
     // Only add if not adjacent to other forced stars or existing stars
     if (!isAdjacentToOtherForcedStar && !hasAdjacentExistingStar) {
       validCells.push(starCell);
+    } else {
+      console.log(`[ENTANGLEMENT DEBUG] Filtering out star at (${star.row},${star.col}) - adjacent to ${isAdjacentToOtherForcedStar ? 'other forced star' : 'existing star'}`);
     }
   }
 
