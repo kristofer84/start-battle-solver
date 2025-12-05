@@ -96,15 +96,17 @@ const constraintVisualization = computed(() => {
   
   for (const feature of constraintFeatures) {
     if (feature === 'candidate_on_outer_ring') {
-      descriptions.push('Candidate must be on the outer edge of the board');
-      // Mark all edge cells (row 0, row size-1, col 0, col size-1)
-      for (let r = 0; r < boardSize.value; r++) {
-        constraintCells.add(`${r},0`);
-        constraintCells.add(`${r},${boardSize.value - 1}`);
+      descriptions.push('Candidate must be on the outer ring (one cell away from edge, excluding actual edge)');
+      // Mark ring 1 cells (row 1, row size-2, col 1, col size-2) - one cell away from edge
+      // But exclude actual edge positions (row 0, row size-1, col 0, col size-1)
+      const last = boardSize.value - 1;
+      for (let r = 1; r < boardSize.value - 1; r++) {
+        constraintCells.add(`${r},1`);
+        constraintCells.add(`${r},${last - 1}`);
       }
-      for (let c = 0; c < boardSize.value; c++) {
-        constraintCells.add(`0,${c}`);
-        constraintCells.add(`${boardSize.value - 1},${c}`);
+      for (let c = 1; c < boardSize.value - 1; c++) {
+        constraintCells.add(`1,${c}`);
+        constraintCells.add(`${last - 1},${c}`);
       }
     } else if (feature === 'candidate_in_ring_1') {
       descriptions.push('Candidate must be in ring 1 (one cell away from edge, excluding corners)');

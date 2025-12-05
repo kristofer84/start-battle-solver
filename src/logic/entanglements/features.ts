@@ -48,16 +48,37 @@ export function evaluateAllFeatures(
 }
 
 /**
- * Check if candidate is on the outer ring (edge) of the board
+ * Check if candidate is on the outer ring (ring 1, one cell away from edge) of the board
+ * This matches the definition used in the entanglement miner:
+ * "Ring" one cell in from the edge, similar to the Kris guide: distance 1 from any side
+ * 
+ * IMPORTANT: The candidate must be on ring 1 AND not on the actual edge.
+ * Positions on the actual edge (row 0, row 9, col 0, col 9) are ambiguous
+ * and should not match this constraint to avoid false positives.
  */
 function candidateOnOuterRing(state: PuzzleState, candidate: Coords): boolean {
   const { size } = state.def;
-  return (
-    candidate.row === 0 ||
-    candidate.row === size - 1 ||
-    candidate.col === 0 ||
-    candidate.col === size - 1
+  const last = size - 1;
+  
+  // Must be on ring 1 (row 1, row last-1, col 1, or col last-1)
+  const isOnRing1 = (
+    candidate.row === 1 ||
+    candidate.row === last - 1 ||
+    candidate.col === 1 ||
+    candidate.col === last - 1
   );
+  
+  // But NOT on the actual edge (row 0, row last, col 0, col last)
+  const isOnActualEdge = (
+    candidate.row === 0 ||
+    candidate.row === last ||
+    candidate.col === 0 ||
+    candidate.col === last
+  );
+  
+  // Must be on ring 1 but not on actual edge
+  // This excludes corner positions and edge positions that are ambiguous
+  return isOnRing1 && !isOnActualEdge;
 }
 
 /**

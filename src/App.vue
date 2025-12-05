@@ -280,6 +280,30 @@ async function trySolve() {
     store.issues = validateState(store.puzzle);
     hintsApplied++;
 
+    // Check for basic constraint violations (error cells)
+    const violations = getRuleViolations(store.puzzle);
+    const hasViolations = violations.rows.size > 0 || 
+                          violations.cols.size > 0 || 
+                          violations.regions.size > 0 || 
+                          violations.adjacentCells.size > 0;
+    
+    if (hasViolations) {
+      const endTime = performance.now();
+      const totalTimeMs = endTime - startTime;
+
+      // Add summary log entry
+      addLogEntry({
+        timestamp: Date.now(),
+        technique: 'Try Solve',
+        timeMs: totalTimeMs,
+        message: `Stopped: Basic constraint violated (error cells detected). Applied ${hintsApplied} step${hintsApplied !== 1 ? 's' : ''} (${totalTimeMs.toFixed(2)}ms total)`,
+        testedTechniques: [],
+      });
+
+      store.currentHint = null;
+      return;
+    }
+
     // Small delay to allow UI to update
     await new Promise(resolve => setTimeout(resolve, 10));
 
