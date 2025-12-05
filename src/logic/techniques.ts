@@ -37,7 +37,12 @@ export interface Technique {
 }
 
 export const techniquesInOrder: Technique[] = [
+  
   {
+    id: 'entanglement',
+    name: 'Entanglement',
+    findHint: findEntanglementHint,
+  },  {
     id: 'trivial-marks',
     name: 'Trivial Marks',
     findHint: findTrivialMarksHint,
@@ -151,11 +156,6 @@ export const techniquesInOrder: Technique[] = [
     id: 'pressured-ts',
     name: 'Pressured Ts',
     findHint: findPressuredTsHint,
-  },
-  {
-    id: 'entanglement',
-    name: 'Entanglement',
-    findHint: findEntanglementHint,
   },
   {
     id: 'fish',

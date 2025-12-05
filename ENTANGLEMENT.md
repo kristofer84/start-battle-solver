@@ -2,7 +2,7 @@
 
 Create a folder (relative to the solver project root) that will contain all entanglement pattern files, for example:
 
-* `specs/entanglements/`
+* `public/entanglements/`
 
 At runtime, the app must:
 
@@ -215,7 +215,7 @@ Notes for the solver:
 
 ### 5.1. Discovery and metadata
 
-For each JSON file in `specs/entanglements/`:
+For each JSON file in `public/entanglements/`:
 
 1. Parse the object.
 

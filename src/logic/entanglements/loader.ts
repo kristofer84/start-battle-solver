@@ -1,6 +1,6 @@
 /**
  * Loader for entanglement pattern files
- * Discovers and parses JSON files from specs/entanglements/
+ * Loads JSON files from src/specs/entanglements/ via explicit imports
  */
 
 import type {
@@ -9,42 +9,46 @@ import type {
   LoadedEntanglementSpec,
   EntanglementSpecMeta,
 } from '../../types/entanglements';
+import { entanglementFiles } from '../../specs/entanglements';
 
 /**
  * Discover and load all entanglement pattern files
- * In a browser environment, we need to use dynamic imports or fetch
+ * Uses explicit imports from the index file for reliable loading
  */
 export async function loadEntanglementSpecs(): Promise<LoadedEntanglementSpec[]> {
+  const startTime = performance.now();
   const specs: LoadedEntanglementSpec[] = [];
 
-  try {
-    // In a Vite environment, we can use import.meta.glob to discover files
-    // This will work at build time and runtime
-    // Use relative path from project root
-    const files = import.meta.glob('../../specs/entanglements/*.json', {
-      eager: false,
-      import: 'default',
-    });
+  console.log('[ENTANGLEMENT DEBUG] Loading entanglement specs from src/specs/entanglements/...');
+  console.log(`[ENTANGLEMENT DEBUG] Found ${entanglementFiles.length} entanglement file(s) to load`);
 
-    for (const [path, importFn] of Object.entries(files)) {
-      try {
-        const data = await importFn() as unknown;
-        // Extract filename from path (handle both / and \ separators)
-        const pathParts = path.split(/[/\\]/);
-        const filename = pathParts[pathParts.length - 1] || path;
-        const id = filename.replace('.json', '');
+  let loadedCount = 0;
+  let pairCount = 0;
+  let tripleCount = 0;
 
-        const spec = parseEntanglementFile(id, data);
-        if (spec) {
-          specs.push(spec);
-        }
-      } catch (error) {
-        console.warn(`Failed to load entanglement file ${path}:`, error);
+  for (const { id, data } of entanglementFiles) {
+    try {
+      const fileStartTime = performance.now();
+      const spec = parseEntanglementFile(id, data as unknown);
+      
+      if (spec) {
+        specs.push(spec);
+        loadedCount += 1;
+        if (spec.hasPairPatterns) pairCount += 1;
+        if (spec.hasTriplePatterns) tripleCount += 1;
+        
+        const fileTime = performance.now() - fileStartTime;
+        console.log(`[ENTANGLEMENT DEBUG] Loaded ${id}: ${spec.boardSize}x${spec.boardSize}, ${spec.hasPairPatterns ? 'pair' : ''}${spec.hasPairPatterns && spec.hasTriplePatterns ? '+' : ''}${spec.hasTriplePatterns ? 'triple' : ''} patterns (${fileTime.toFixed(2)}ms)`);
+      } else {
+        console.warn(`[ENTANGLEMENT DEBUG] Failed to parse ${id}: unrecognized format`);
       }
+    } catch (error) {
+      console.warn(`[ENTANGLEMENT DEBUG] Failed to load entanglement file ${id}:`, error);
     }
-  } catch (error) {
-    console.warn('Failed to discover entanglement files:', error);
   }
+
+  const totalTime = performance.now() - startTime;
+  console.log(`[ENTANGLEMENT DEBUG] Spec loading complete: ${loadedCount}/${entanglementFiles.length} files loaded (${pairCount} with pairs, ${tripleCount} with triples) in ${totalTime.toFixed(2)}ms`);
 
   return specs;
 }
@@ -153,3 +157,4 @@ export function filterSpecsByPuzzle(
     return true;
   });
 }
+

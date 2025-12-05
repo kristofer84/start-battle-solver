@@ -56,27 +56,41 @@ export function findPatternMappings(
   }> = [];
 
   if (canonicalStars.length === 0 || actualStars.length < canonicalStars.length) {
+    if (canonicalStars.length === 0) {
+      console.log(`[ENTANGLEMENT DEBUG]   No canonical stars in pattern`);
+    } else {
+      console.log(`[ENTANGLEMENT DEBUG]   Not enough actual stars (need ${canonicalStars.length}, have ${actualStars.length})`);
+    }
     return mappings;
   }
 
+  let transformsTried = 0;
+  let combinationsTried = 0;
+  let offsetsFound = 0;
+  let validMappings = 0;
+
   // Try each D4 transformation
   for (const transform of ALL_D4_TRANSFORMATIONS) {
+    transformsTried += 1;
     const transformed = transformCoordsList(canonicalStars, transform);
 
     // Try each combination of actual stars that matches the count
     const combinations = getCombinations(actualStars, canonicalStars.length);
+    combinationsTried += combinations.length;
 
     for (const combo of combinations) {
       const actualTuples = combo.map(coordsToTuple);
       const offset = findTranslationOffset(transformed, actualTuples, boardSize);
 
       if (offset) {
+        offsetsFound += 1;
         const mappedStars = transformed
           .map((c) => translateCoords(c, offset))
           .map(tupleToCoords);
 
         // Verify all mapped stars are in bounds and match actual stars
         if (allInBounds(transformed.map((c) => translateCoords(c, offset)), boardSize)) {
+          validMappings += 1;
           mappings.push({
             transform,
             offset,
@@ -85,6 +99,10 @@ export function findPatternMappings(
         }
       }
     }
+  }
+
+  if (mappings.length === 0 && actualStars.length >= canonicalStars.length) {
+    console.log(`[ENTANGLEMENT DEBUG]   Pattern matching: ${transformsTried} transforms, ${combinationsTried} combinations, ${offsetsFound} offsets found, ${validMappings} valid mappings`);
   }
 
   return mappings;
@@ -187,11 +205,22 @@ export function applyTripleRule(
   const { size } = state.def;
 
   // Find all valid mappings of canonical stars to actual stars
+  const mappingStartTime = performance.now();
   const mappings = findPatternMappings(
     rule.canonical_stars,
     actualStars,
     size
   );
+  const mappingTime = performance.now() - mappingStartTime;
+
+  if (mappings.length > 0) {
+    console.log(`[ENTANGLEMENT DEBUG]   Found ${mappings.length} valid mapping(s) for rule (took ${mappingTime.toFixed(2)}ms)`);
+  }
+
+  let candidatesChecked = 0;
+  let candidatesInBounds = 0;
+  let candidatesEmpty = 0;
+  let candidatesWithFeaturesSatisfied = 0;
 
   for (const mapping of mappings) {
     // Transform the canonical candidate using the same transformation and offset
@@ -203,11 +232,14 @@ export function applyTripleRule(
       transformedCandidate[1] + mapping.offset[1],
     ];
 
+    candidatesChecked += 1;
+
     // Check bounds
     if (!allInBounds([candidateTuple], size)) {
       continue;
     }
 
+    candidatesInBounds += 1;
     const candidate = tupleToCoords(candidateTuple);
 
     // Check if candidate is currently undecided
@@ -215,15 +247,21 @@ export function applyTripleRule(
       continue;
     }
 
+    candidatesEmpty += 1;
+
     // Evaluate constraint features
+    const featuresStartTime = performance.now();
     const featuresSatisfied = evaluateAllFeatures(
       rule.constraint_features,
       state,
       candidate,
       mapping.mappedStars
     );
+    const featuresTime = performance.now() - featuresStartTime;
 
     if (featuresSatisfied) {
+      candidatesWithFeaturesSatisfied += 1;
+      console.log(`[ENTANGLEMENT DEBUG]   Candidate (${candidate.row},${candidate.col}) matches rule (features checked in ${featuresTime.toFixed(2)}ms)`);
       // Rule applies - candidate is forced
       // Note: The rule.forced field indicates whether it's forced star or forced empty
       // For now, we'll treat it as forced empty (cross) based on typical entanglement semantics
@@ -232,5 +270,10 @@ export function applyTripleRule(
     }
   }
 
+  if (mappings.length > 0 && forcedCells.length === 0) {
+    console.log(`[ENTANGLEMENT DEBUG]   Rule matched ${mappings.length} mapping(s) but no forced cells: ${candidatesChecked} candidates checked, ${candidatesInBounds} in bounds, ${candidatesEmpty} empty, ${candidatesWithFeaturesSatisfied} with features satisfied`);
+  }
+
   return forcedCells;
 }
+

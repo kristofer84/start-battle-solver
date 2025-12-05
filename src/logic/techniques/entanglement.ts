@@ -45,43 +45,88 @@ let cachedSpecs: Awaited<ReturnType<typeof loadEntanglementSpecs>> | null = null
 let specsLoadPromise: Promise<void> | null = null;
 
 async function ensureSpecsLoaded(): Promise<void> {
-  if (cachedSpecs !== null) return;
-  if (specsLoadPromise) {
-    await specsLoadPromise;
+  if (cachedSpecs !== null) {
+    console.log(`[ENTANGLEMENT DEBUG] Specs already loaded (${cachedSpecs.length} specs)`);
     return;
   }
+  if (specsLoadPromise) {
+    console.log(`[ENTANGLEMENT DEBUG] Specs loading already in progress, waiting...`);
+    await specsLoadPromise;
+    // After promise resolves, cachedSpecs should be set
+    console.log(`[ENTANGLEMENT DEBUG] Specs loading completed`);
+    return;
+  }
+  console.log(`[ENTANGLEMENT DEBUG] Starting async spec loading...`);
   specsLoadPromise = (async () => {
-    cachedSpecs = await loadEntanglementSpecs();
+    const specs = await loadEntanglementSpecs();
+    cachedSpecs = specs;
+    console.log(`[ENTANGLEMENT DEBUG] Async spec loading completed (${specs.length} specs)`);
   })();
   await specsLoadPromise;
 }
 
 export function findEntanglementHint(state: PuzzleState): Hint | null {
+  const startTime = performance.now();
   const { size, starsPerUnit } = state.def;
+
+  console.log(`[ENTANGLEMENT DEBUG] Starting entanglement technique (board: ${size}x${size}, stars per unit: ${starsPerUnit})`);
 
   // Try pattern-based entanglement first (if specs are available)
   // Note: This is synchronous, so we check if specs are already loaded
   if (cachedSpecs !== null) {
+    console.log(`[ENTANGLEMENT DEBUG] Using cached specs (${cachedSpecs.length} specs loaded)`);
+    const patternStartTime = performance.now();
     const patternHint = findPatternBasedHint(state, cachedSpecs);
+    const patternTime = performance.now() - patternStartTime;
+    
     if (patternHint) {
+      const totalTime = performance.now() - startTime;
+      console.log(`[ENTANGLEMENT DEBUG] Pattern-based hint found in ${patternTime.toFixed(2)}ms (total: ${totalTime.toFixed(2)}ms)`);
+      console.log(`[ENTANGLEMENT DEBUG] Found ${patternHint.resultCells.length} forced cell(s):`, patternHint.resultCells);
       return patternHint;
+    } else {
+      console.log(`[ENTANGLEMENT DEBUG] No pattern-based hint found (checked in ${patternTime.toFixed(2)}ms)`);
     }
   } else {
+    console.log(`[ENTANGLEMENT DEBUG] Specs not yet loaded, attempting async load...`);
     // Try to load specs asynchronously (non-blocking)
     ensureSpecsLoaded().catch((err) => {
-      console.warn('Failed to load entanglement specs:', err);
+      console.warn('[ENTANGLEMENT DEBUG] Failed to load entanglement specs:', err);
     });
   }
 
   // Fall back to heuristic approach
+  console.log(`[ENTANGLEMENT DEBUG] Falling back to heuristic approach...`);
+  const heuristicStartTime = performance.now();
+  
   // Find all constrained units (units with limited placement options)
   const constrainedUnits = findConstrainedUnits(state);
+  const constrainedUnitsTime = performance.now() - heuristicStartTime;
+  
+  console.log(`[ENTANGLEMENT DEBUG] Found ${constrainedUnits.length} constrained units (took ${constrainedUnitsTime.toFixed(2)}ms)`);
+  
+  if (constrainedUnits.length > 0) {
+    const unitTypes = constrainedUnits.reduce((acc, u) => {
+      acc[u.type] = (acc[u.type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    console.log(`[ENTANGLEMENT DEBUG] Constrained units breakdown:`, unitTypes);
+  }
 
-  if (constrainedUnits.length < 2) return null;
+  if (constrainedUnits.length < 2) {
+    const totalTime = performance.now() - startTime;
+    console.log(`[ENTANGLEMENT DEBUG] Not enough constrained units (need 2+, found ${constrainedUnits.length}), returning null (total: ${totalTime.toFixed(2)}ms)`);
+    return null;
+  }
 
   // Look for entangled constraints
+  let pairsChecked = 0;
+  let pairsWithSharedCells = 0;
+  let pairsWithForcedCells = 0;
+  
   for (let i = 0; i < constrainedUnits.length; i += 1) {
     for (let j = i + 1; j < constrainedUnits.length; j += 1) {
+      pairsChecked += 1;
       const unit1 = constrainedUnits[i];
       const unit2 = constrainedUnits[j];
 
@@ -89,16 +134,28 @@ export function findEntanglementHint(state: PuzzleState): Hint | null {
       const sharedCells = findSharedCells(unit1.possibleCells, unit2.possibleCells);
 
       if (sharedCells.length > 0) {
+        pairsWithSharedCells += 1;
+        console.log(`[ENTANGLEMENT DEBUG] Pair ${pairsChecked}: ${formatUnit(unit1)} & ${formatUnit(unit2)} share ${sharedCells.length} cell(s)`);
+        
         // Analyze the entanglement
+        const analysisStartTime = performance.now();
         const forcedCells = analyzeEntanglement(state, [unit1, unit2], constrainedUnits);
-
+        const analysisTime = performance.now() - analysisStartTime;
+        
         if (forcedCells.length > 0) {
+          pairsWithForcedCells += 1;
+          console.log(`[ENTANGLEMENT DEBUG] Found ${forcedCells.length} forced cell(s) in ${analysisTime.toFixed(2)}ms:`, 
+            forcedCells.map(fc => `${fc.kind === 'place-star' ? 'star' : 'cross'} at (${fc.cell.row},${fc.cell.col})`));
+          
           // Filter out any forced stars that would be adjacent to other forced stars
           const validForcedCells = filterValidForcedCells(state, forcedCells);
           
           if (validForcedCells.length === 0) {
+            console.log(`[ENTANGLEMENT DEBUG] All forced cells filtered out (adjacency conflicts)`);
             continue; // Skip if no valid forced cells remain
           }
+          
+          console.log(`[ENTANGLEMENT DEBUG] ${validForcedCells.length} valid forced cell(s) after filtering`);
 
           const regions = new Set<number>();
           const rows = new Set<number>();
@@ -135,23 +192,42 @@ export function findEntanglementHint(state: PuzzleState): Hint | null {
     }
   }
 
+  const totalTime = performance.now() - startTime;
+  console.log(`[ENTANGLEMENT DEBUG] Pair analysis complete: checked ${pairsChecked} pairs, ${pairsWithSharedCells} with shared cells, ${pairsWithForcedCells} with forced cells (took ${totalTime.toFixed(2)}ms)`);
+
   // Try more complex entanglements with 3+ units
+  let tripletsChecked = 0;
+  let tripletsWithSharedCells = 0;
+  let tripletsWithForcedCells = 0;
+  
   for (let i = 0; i < constrainedUnits.length; i += 1) {
     for (let j = i + 1; j < constrainedUnits.length; j += 1) {
       for (let k = j + 1; k < constrainedUnits.length; k += 1) {
+        tripletsChecked += 1;
         const units = [constrainedUnits[i], constrainedUnits[j], constrainedUnits[k]];
 
         // Check if these units form an entangled system
         if (hasSharedCells(units)) {
+          tripletsWithSharedCells += 1;
+          console.log(`[ENTANGLEMENT DEBUG] Triplet ${tripletsChecked}: ${units.map(formatUnit).join(', ')} share cells`);
+          
+          const analysisStartTime = performance.now();
           const forcedCells = analyzeEntanglement(state, units, constrainedUnits);
+          const analysisTime = performance.now() - analysisStartTime;
 
           if (forcedCells.length > 0) {
+            tripletsWithForcedCells += 1;
+            console.log(`[ENTANGLEMENT DEBUG] Found ${forcedCells.length} forced cell(s) in triplet (took ${analysisTime.toFixed(2)}ms)`);
+            
             // Filter out any forced stars that would be adjacent to other forced stars
             const validForcedCells = filterValidForcedCells(state, forcedCells);
             
             if (validForcedCells.length === 0) {
+              console.log(`[ENTANGLEMENT DEBUG] All triplet forced cells filtered out (adjacency conflicts)`);
               continue; // Skip if no valid forced cells remain
             }
+            
+            console.log(`[ENTANGLEMENT DEBUG] ${validForcedCells.length} valid forced cell(s) from triplet after filtering`);
 
             const regions = new Set<number>();
             const rows = new Set<number>();
@@ -200,17 +276,36 @@ function findPatternBasedHint(
   const { size, starsPerUnit } = state.def;
   const actualStars = getAllPlacedStars(state);
 
+  console.log(`[ENTANGLEMENT DEBUG] Pattern-based search: ${actualStars.length} placed star(s) on board`);
+
   // Filter specs to match current puzzle
   const matchingSpecs = filterSpecsByPuzzle(specs, size, starsPerUnit);
+  console.log(`[ENTANGLEMENT DEBUG] Found ${matchingSpecs.length} matching spec(s) for ${size}x${size} board with ${starsPerUnit} stars per unit`);
 
   // Try triple rules first (more specific)
+  let specsChecked = 0;
+  let unconstrainedRulesChecked = 0;
+  let constrainedRulesChecked = 0;
+  
   for (const spec of matchingSpecs) {
-    if (!spec.hasTriplePatterns || !spec.tripleData) continue;
+    specsChecked += 1;
+    if (!spec.hasTriplePatterns || !spec.tripleData) {
+      console.log(`[ENTANGLEMENT DEBUG] Spec ${specsChecked} (${spec.id}): skipping (no triple patterns)`);
+      continue;
+    }
+
+    console.log(`[ENTANGLEMENT DEBUG] Spec ${specsChecked} (${spec.id}): ${spec.tripleData.unconstrained_rules.length} unconstrained rules, ${spec.tripleData.constrained_rules.length} constrained rules`);
 
     // Try unconstrained rules first
     for (const rule of spec.tripleData.unconstrained_rules) {
+      unconstrainedRulesChecked += 1;
+      const ruleStartTime = performance.now();
       const forcedCells = applyTripleRule(rule, state, actualStars);
+      const ruleTime = performance.now() - ruleStartTime;
+      
       if (forcedCells.length > 0) {
+        console.log(`[ENTANGLEMENT DEBUG] Unconstrained rule ${unconstrainedRulesChecked} matched! Found ${forcedCells.length} forced cell(s) in ${ruleTime.toFixed(2)}ms`);
+        console.log(`[ENTANGLEMENT DEBUG] Rule: ${rule.canonical_stars.length} canonical stars, candidate at [${rule.canonical_candidate[0]},${rule.canonical_candidate[1]}], occurrences: ${rule.occurrences}`);
         return {
           id: nextHintId(),
           kind: 'place-cross', // Triple rules typically force empty cells
@@ -225,13 +320,23 @@ function findPatternBasedHint(
           },
         };
       }
+      
+      if (ruleTime > 10) {
+        console.log(`[ENTANGLEMENT DEBUG] Unconstrained rule ${unconstrainedRulesChecked} took ${ruleTime.toFixed(2)}ms (no match)`);
+      }
     }
 
     // Try constrained rules
     for (const rule of spec.tripleData.constrained_rules) {
+      constrainedRulesChecked += 1;
+      const ruleStartTime = performance.now();
       const forcedCells = applyTripleRule(rule, state, actualStars);
+      const ruleTime = performance.now() - ruleStartTime;
+      
       if (forcedCells.length > 0) {
         const constraints = rule.constraint_features.join(', ');
+        console.log(`[ENTANGLEMENT DEBUG] Constrained rule ${constrainedRulesChecked} matched! Found ${forcedCells.length} forced cell(s) in ${ruleTime.toFixed(2)}ms`);
+        console.log(`[ENTANGLEMENT DEBUG] Rule: ${rule.canonical_stars.length} canonical stars, candidate at [${rule.canonical_candidate[0]},${rule.canonical_candidate[1]}], constraints: [${constraints}], occurrences: ${rule.occurrences}`);
         return {
           id: nextHintId(),
           kind: 'place-cross',
@@ -246,9 +351,14 @@ function findPatternBasedHint(
           },
         };
       }
+      
+      if (ruleTime > 10) {
+        console.log(`[ENTANGLEMENT DEBUG] Constrained rule ${constrainedRulesChecked} took ${ruleTime.toFixed(2)}ms (no match)`);
+      }
     }
   }
 
+  console.log(`[ENTANGLEMENT DEBUG] Pattern-based search complete: checked ${specsChecked} specs, ${unconstrainedRulesChecked} unconstrained rules, ${constrainedRulesChecked} constrained rules`);
   return null;
 }
 
@@ -332,6 +442,15 @@ function findConstrainedUnits(state: PuzzleState): ConstrainedUnit[] {
           possibleCells: viableCells,
         });
       }
+    }
+  }
+
+  // Debug output for constrained units
+  if (constrained.length > 0) {
+    console.log(`[ENTANGLEMENT DEBUG] Constrained units details:`);
+    for (const unit of constrained) {
+      console.log(`[ENTANGLEMENT DEBUG]   ${formatUnit(unit)}: needs ${unit.starsNeeded} star(s), ${unit.possibleCells.length} possible cell(s):`, 
+        unit.possibleCells.map(c => `(${c.row},${c.col})`).join(', '));
     }
   }
 
@@ -423,6 +542,13 @@ function analyzeEntanglement(
     }
   }
 
+  console.log(`[ENTANGLEMENT DEBUG]     Analyzing ${allCells.size} unique cell(s) across ${entangledUnits.length} unit(s)`);
+
+  let cellsTestedForStar = 0;
+  let cellsTestedForCross = 0;
+  let contradictionsFoundForStar = 0;
+  let contradictionsFoundForCross = 0;
+
   // For each cell in the entanglement, test if it's forced
   for (const cellKey of allCells) {
     const [row, col] = cellKey.split(',').map(Number);
@@ -433,6 +559,7 @@ function analyzeEntanglement(
 
     // Check if this leads to a contradiction in any of the entangled units
     let contradiction = false;
+    let contradictionUnit: ConstrainedUnit | null = null;
 
     for (const unit of entangledUnits) {
       // Count remaining viable cells for this unit
@@ -444,11 +571,15 @@ function analyzeEntanglement(
       // If we don't have enough viable cells for the stars needed, contradiction
       if (viableCells.length < unit.starsNeeded) {
         contradiction = true;
+        contradictionUnit = unit;
         break;
       }
     }
 
     if (contradiction) {
+      cellsTestedForStar += 1;
+      contradictionsFoundForStar += 1;
+      console.log(`[ENTANGLEMENT DEBUG]     Cell (${cell.row},${cell.col}) forced to be star (contradiction in ${formatUnit(contradictionUnit!)})`);
       forcedCells.push({ cell, kind: 'place-star' });
     }
   }
@@ -463,11 +594,14 @@ function analyzeEntanglement(
       continue;
     }
 
+    cellsTestedForCross += 1;
+
     // Test hypothesis: what if this cell IS a star?
     const testState = simulateStar(state, cell);
 
     // Check if this leads to a contradiction
     let contradiction = false;
+    let contradictionUnit: ConstrainedUnit | null = null;
 
     for (const unit of entangledUnits) {
       // Count remaining viable cells for this unit
@@ -484,20 +618,26 @@ function analyzeEntanglement(
       // If we have too many stars or not enough space for remaining stars
       if (starsInUnit > state.def.starsPerUnit) {
         contradiction = true;
+        contradictionUnit = unit;
         break;
       }
 
       const starsNeeded = state.def.starsPerUnit - starsInUnit;
       if (viableCells.length < starsNeeded) {
         contradiction = true;
+        contradictionUnit = unit;
         break;
       }
     }
 
     if (contradiction) {
+      contradictionsFoundForCross += 1;
+      console.log(`[ENTANGLEMENT DEBUG]     Cell (${cell.row},${cell.col}) forced to be cross (contradiction in ${formatUnit(contradictionUnit!)})`);
       forcedCells.push({ cell, kind: 'place-cross' });
     }
   }
+
+  console.log(`[ENTANGLEMENT DEBUG]     Analysis complete: tested ${cellsTestedForStar} cells for star forcing (${contradictionsFoundForStar} contradictions), ${cellsTestedForCross} cells for cross forcing (${contradictionsFoundForCross} contradictions)`);
 
   return forcedCells;
 }
