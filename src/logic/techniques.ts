@@ -63,6 +63,11 @@ export const techniquesInOrder: Technique[] = [
     findHint: findExactFillHint,
   },
   {
+    id: 'simple-shapes',
+    name: 'Simple Shapes',
+    findHint: findSimpleShapesHint,
+  },
+  {
     id: 'cross-pressure',
     name: 'Cross Pressure',
     findHint: findCrossPressureHint,
@@ -76,11 +81,6 @@ export const techniquesInOrder: Technique[] = [
     id: 'shared-row-column',
     name: 'Shared Row/Column',
     findHint: findSharedRowColumnHint,
-  },
-  {
-    id: 'simple-shapes',
-    name: 'Simple Shapes',
-    findHint: findSimpleShapesHint,
   },
   {
     id: 'exclusion',
@@ -153,6 +153,11 @@ export const techniquesInOrder: Technique[] = [
     findHint: findPressuredTsHint,
   },
   {
+    id: 'entanglement',
+    name: 'Entanglement',
+    findHint: findEntanglementHint,
+  },
+  {
     id: 'fish',
     name: 'Fish',
     findHint: findFishHint,
@@ -171,11 +176,6 @@ export const techniquesInOrder: Technique[] = [
     id: 'by-a-thread-at-sea',
     name: 'By a Thread at Sea',
     findHint: findByAThreadAtSeaHint,
-  },
-  {
-    id: 'entanglement',
-    name: 'Entanglement',
-    findHint: findEntanglementHint,
   },
 ];
 

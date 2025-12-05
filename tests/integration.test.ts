@@ -718,9 +718,9 @@ describe('Integration Tests: Complete Puzzle Solving', () => {
       'trivial-marks',
       'two-by-two',
       'exact-fill',
+      'simple-shapes',
       'exclusion',
       'pressured-exclusion',
-      'simple-shapes',
     ];
     
     const countingTechniques: TechniqueId[] = [
@@ -839,8 +839,8 @@ describe('Integration Tests: Guide Example Sequences', () => {
       'trivial-marks',
       'two-by-two',
       'exact-fill',
-      'exclusion',
       'simple-shapes',
+      'exclusion',
     ];
     
     const usedBasicTechniques = techniquesUsed.filter(t => basicTechniques.includes(t));
@@ -948,6 +948,7 @@ describe('Integration Tests: Technique Verification', () => {
       'adjacent-row-col',
       'two-by-two',
       'exact-fill',
+      'simple-shapes',
       'cross-pressure',
       'cross-empty-patterns',
       'shared-row-column',
@@ -955,7 +956,6 @@ describe('Integration Tests: Technique Verification', () => {
       'pressured-exclusion',
       'adjacent-exclusion',
       'forced-placement',
-      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -966,11 +966,11 @@ describe('Integration Tests: Technique Verification', () => {
       'kissing-ls',
       'the-m',
       'pressured-ts',
+      'entanglement',
       'fish',
       'n-rooks',
       'by-a-thread',
       'by-a-thread-at-sea',
-      'entanglement',
     ];
 
     expect(techniquesInOrder.length).toBe(28);
@@ -989,6 +989,7 @@ describe('Integration Tests: Technique Verification', () => {
       'adjacent-row-col',
       'two-by-two',
       'exact-fill',
+      'simple-shapes',
       'cross-pressure',
       'cross-empty-patterns',
       'shared-row-column',
@@ -996,7 +997,6 @@ describe('Integration Tests: Technique Verification', () => {
       'pressured-exclusion',
       'adjacent-exclusion',
       'forced-placement',
-      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -1007,11 +1007,11 @@ describe('Integration Tests: Technique Verification', () => {
       'kissing-ls',
       'the-m',
       'pressured-ts',
+      'entanglement',
       'fish',
       'n-rooks',
       'by-a-thread',
       'by-a-thread-at-sea',
-      'entanglement',
     ];
     
     const actualOrder = techniquesInOrder.map(t => t.id);

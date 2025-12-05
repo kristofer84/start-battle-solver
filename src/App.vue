@@ -41,6 +41,10 @@ const importError = ref<string | null>(null);
 const logPanelRef = ref<HTMLElement | null>(null);
 const selectedPuzzle = ref<string>('');
 
+watch(selectedPuzzle, () => {
+  loadPredefinedPuzzle();
+});
+
 // Predefined puzzles
 const predefinedPuzzles = [
   {
@@ -70,7 +74,7 @@ const predefinedPuzzles = [
 5 5 6 6 9 9 9 9 9 9`
   },
   {
-    name: 'Puzzle 3',
+    name: 'Maho Yokota',
     data: `0 0 0 0 0 0 0 0 1 1
 0 2 2 2 2 2 1 1 1 1
 2 2 3 4 4 4 1 1 5 5
@@ -94,6 +98,45 @@ const predefinedPuzzles = [
 6 8 8 8 7 7 7 9 9 5
 6 6 6 8 8 7 7 9 9 5
 6 6 8 8 7 7 9 9 9 9`
+  },
+  {
+    name: 'Puzzle 5',
+    data: `0 0 0 1 1 1 1 1 1 1
+0 2 0 0 1 1 1 1 3 3
+0 2 0 1 1 3 3 3 3 3
+0 2 0 2 2 3 4 4 4 3
+5 2 2 2 3 3 4 4 6 7
+5 2 2 2 3 4 4 4 6 7
+5 2 8 8 8 4 4 4 6 7
+5 2 9 9 8 4 4 4 6 7
+5 9 9 9 8 8 6 6 6 7
+5 9 8 8 8 8 6 6 6 6`
+  },
+  {
+    name: 'Puzzle 6',
+    data: `0 0 0 1 1 1 1 1 1 1
+0 0 1 1 2 2 2 3 3 4
+0 0 1 0 0 2 3 3 4 4
+0 0 1 0 0 2 3 4 4 5
+6 0 1 0 2 2 3 4 4 5
+6 0 0 0 7 7 3 3 4 5
+6 8 8 8 7 7 9 9 4 5
+6 8 8 8 7 7 7 9 9 5
+6 6 6 8 8 7 7 9 9 5
+6 6 8 8 7 7 9 9 9 9`
+  },
+  {
+    name: "Kris De Asis",
+    data: `0 0 0 1 1 1 1 2 2 2
+0 3 3 3 1 1 1 1 1 2
+0 0 3 3 4 1 4 1 1 2
+0 4 4 4 4 4 4 4 2 2
+0 0 5 5 4 4 4 4 4 2
+0 0 0 5 5 6 6 6 7 7
+0 0 5 5 5 5 6 6 7 7
+8 5 5 5 5 5 5 5 7 7
+8 5 5 8 5 9 9 5 7 7
+8 8 8 8 9 9 9 9 9 7`
   }
 ];
 
@@ -369,7 +412,7 @@ function formatPuzzleString(): string {
       let regionId = store.puzzle.def.regions[r][c];
       // Map region 10 to 0 for output
       if (regionId === 10) regionId = 0;
-      
+
       const cellState = store.puzzle.cells[r][c];
       let token = String(regionId);
       if (cellState === 'star') {
@@ -452,12 +495,11 @@ watch(
       </div>
 
       <ModeToolbar :mode="store.mode" :selection-mode="store.selectionMode"
-        :show-row-col-numbers="store.showRowColNumbers" :show-area-labels="store.showAreaLabels" :can-undo="canUndo()" :can-redo="canRedo()"
-        @change-mode="onChangeMode" @change-selection="onChangeSelection" @request-hint="requestHint"
-        @apply-hint="applyHint" @try-solve="trySolve" @clear="clearBoard"
+        :show-row-col-numbers="store.showRowColNumbers" :show-area-labels="store.showAreaLabels" :can-undo="canUndo()"
+        :can-redo="canRedo()" @change-mode="onChangeMode" @change-selection="onChangeSelection"
+        @request-hint="requestHint" @apply-hint="applyHint" @try-solve="trySolve" @clear="clearBoard"
         @toggle-row-col-numbers="() => setShowRowColNumbers(!store.showRowColNumbers)"
-        @toggle-area-labels="() => setShowAreaLabels(!store.showAreaLabels)" @undo="handleUndo"
-        @redo="handleRedo" />
+        @toggle-area-labels="() => setShowAreaLabels(!store.showAreaLabels)" @undo="handleUndo" @redo="handleRedo" />
 
       <div v-if="store.isThinking" class="thinking-indicator">
         <span class="thinking-spinner">⏳</span>
@@ -468,8 +510,8 @@ watch(
         <div style="flex: 3">
           <StarBattleBoard :state="store.puzzle" selection-mode="region" :selected-region-id="store.selectedRegionId"
             :hint-highlight="store.currentHint?.highlights ?? null" :result-cells="store.currentHint?.resultCells ?? []"
-            :show-row-col-numbers="store.showRowColNumbers"
-            :violations="violations" mode="editor" @cell-click="onCellClick" />
+            :show-row-col-numbers="store.showRowColNumbers" :violations="violations" mode="editor"
+            @cell-click="onCellClick" />
         </div>
         <div style="flex: 2">
           <RegionPicker :selected-id="store.selectedRegionId" @select-region="onSelectRegion" />
@@ -506,9 +548,8 @@ watch(
       <div v-else style="margin-top: 0.6rem">
         <StarBattleBoard :state="store.puzzle" :selection-mode="store.selectionMode"
           :selected-region-id="store.selectedRegionId" :hint-highlight="store.currentHint?.highlights ?? null"
-          :result-cells="store.currentHint?.resultCells ?? []"
-          :show-row-col-numbers="store.showRowColNumbers" :show-area-labels="store.showAreaLabels" :violations="violations" mode="play"
-          @cell-click="onCellClick" />
+          :result-cells="store.currentHint?.resultCells ?? []" :show-row-col-numbers="store.showRowColNumbers"
+          :show-area-labels="store.showAreaLabels" :violations="violations" mode="play" @cell-click="onCellClick" />
         <div style="margin-top: 0.75rem">
           <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
             Region Theme (A-J)
@@ -549,7 +590,7 @@ watch(
         <div style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem">
           Load predefined puzzle
         </div>
-        <select v-model="selectedPuzzle" @change="loadPredefinedPuzzle"
+        <select v-model="selectedPuzzle"
           style="width: 100%; padding: 0.3rem 0.5rem; border-radius: 0.5rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(15, 23, 42, 0.9); color: #e5e7eb; font-size: 0.8rem; cursor: pointer; margin-bottom: 1rem;">
           <option value="">Select a puzzle...</option>
           <option v-for="puzzle in predefinedPuzzles" :key="puzzle.name" :value="puzzle.name">
@@ -565,7 +606,8 @@ watch(
         </div>
         <textarea v-model="importText" rows="6"
           style="width: 100%; resize: vertical; border-radius: 0.5rem; border: 1px solid rgba(148,163,184,0.5); background:#020617; color:#e5e7eb; padding:0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:0.8rem;" />
-        <div style="margin-top: 0.4rem; display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+        <div
+          style="margin-top: 0.4rem; display:flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
           <button type="button" class="btn secondary" @click="applyImport">
             Apply pasted puzzle
           </button>

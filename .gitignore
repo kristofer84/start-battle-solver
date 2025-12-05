@@ -4,3 +4,5 @@ local
 .vscode
 **/dist
 **/output
+**/specs/**/*.json
+!**/specs/**/example*.json

@@ -12,6 +12,8 @@ import {
   formatCol,
   formatRegion,
 } from '../helpers';
+import { loadEntanglementSpecs, filterSpecsByPuzzle } from '../entanglements/loader';
+import { getAllPlacedStars, applyTripleRule } from '../entanglements/matcher';
 
 let hintCounter = 0;
 
@@ -38,9 +40,40 @@ function nextHintId() {
  *   which forces (6,4) to be a star (region 5), which forces (3,4) to be a star (column 4)
  * - This contradiction means (3,4) must be a star
  */
+// Cache for loaded specs (lazy-loaded on first use)
+let cachedSpecs: Awaited<ReturnType<typeof loadEntanglementSpecs>> | null = null;
+let specsLoadPromise: Promise<void> | null = null;
+
+async function ensureSpecsLoaded(): Promise<void> {
+  if (cachedSpecs !== null) return;
+  if (specsLoadPromise) {
+    await specsLoadPromise;
+    return;
+  }
+  specsLoadPromise = (async () => {
+    cachedSpecs = await loadEntanglementSpecs();
+  })();
+  await specsLoadPromise;
+}
+
 export function findEntanglementHint(state: PuzzleState): Hint | null {
   const { size, starsPerUnit } = state.def;
 
+  // Try pattern-based entanglement first (if specs are available)
+  // Note: This is synchronous, so we check if specs are already loaded
+  if (cachedSpecs !== null) {
+    const patternHint = findPatternBasedHint(state, cachedSpecs);
+    if (patternHint) {
+      return patternHint;
+    }
+  } else {
+    // Try to load specs asynchronously (non-blocking)
+    ensureSpecsLoaded().catch((err) => {
+      console.warn('Failed to load entanglement specs:', err);
+    });
+  }
+
+  // Fall back to heuristic approach
   // Find all constrained units (units with limited placement options)
   const constrainedUnits = findConstrainedUnits(state);
 
@@ -150,6 +183,68 @@ export function findEntanglementHint(state: PuzzleState): Hint | null {
             };
           }
         }
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Find hints using loaded entanglement patterns
+ */
+function findPatternBasedHint(
+  state: PuzzleState,
+  specs: Awaited<ReturnType<typeof loadEntanglementSpecs>>
+): Hint | null {
+  const { size, starsPerUnit } = state.def;
+  const actualStars = getAllPlacedStars(state);
+
+  // Filter specs to match current puzzle
+  const matchingSpecs = filterSpecsByPuzzle(specs, size, starsPerUnit);
+
+  // Try triple rules first (more specific)
+  for (const spec of matchingSpecs) {
+    if (!spec.hasTriplePatterns || !spec.tripleData) continue;
+
+    // Try unconstrained rules first
+    for (const rule of spec.tripleData.unconstrained_rules) {
+      const forcedCells = applyTripleRule(rule, state, actualStars);
+      if (forcedCells.length > 0) {
+        return {
+          id: nextHintId(),
+          kind: 'place-cross', // Triple rules typically force empty cells
+          technique: 'entanglement',
+          resultCells: forcedCells,
+          explanation: `Entanglement pattern: Based on the geometry of ${rule.canonical_stars.length} placed stars, this cell is forced to be empty. (Pattern occurred ${rule.occurrences} times in analysis.)`,
+          highlights: {
+            cells: [
+              ...actualStars,
+              ...forcedCells,
+            ],
+          },
+        };
+      }
+    }
+
+    // Try constrained rules
+    for (const rule of spec.tripleData.constrained_rules) {
+      const forcedCells = applyTripleRule(rule, state, actualStars);
+      if (forcedCells.length > 0) {
+        const constraints = rule.constraint_features.join(', ');
+        return {
+          id: nextHintId(),
+          kind: 'place-cross',
+          technique: 'entanglement',
+          resultCells: forcedCells,
+          explanation: `Entanglement pattern: Based on the geometry of ${rule.canonical_stars.length} placed stars and constraints (${constraints}), this cell is forced to be empty. (Pattern occurred ${rule.occurrences} times in analysis.)`,
+          highlights: {
+            cells: [
+              ...actualStars,
+              ...forcedCells,
+            ],
+          },
+        };
       }
     }
   }

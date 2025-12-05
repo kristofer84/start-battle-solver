@@ -7,6 +7,7 @@ export type TechniqueId =
   | 'adjacent-row-col'
   | 'two-by-two'
   | 'exact-fill'
+  | 'simple-shapes'
   | 'cross-pressure'
   | 'cross-empty-patterns'
   | 'shared-row-column'
@@ -14,7 +15,6 @@ export type TechniqueId =
   | 'pressured-exclusion'
   | 'adjacent-exclusion'
   | 'forced-placement'
-  | 'simple-shapes'
   // 2. Counting
   | 'undercounting'
   | 'overcounting'

@@ -14,6 +14,7 @@ describe('Technique Ordering', () => {
       'adjacent-row-col',
       'two-by-two',
       'exact-fill',
+      'simple-shapes',
       'cross-pressure',
       'cross-empty-patterns',
       'shared-row-column',
@@ -21,7 +22,6 @@ describe('Technique Ordering', () => {
       'pressured-exclusion',
       'adjacent-exclusion',
       'forced-placement',
-      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -32,11 +32,11 @@ describe('Technique Ordering', () => {
       'kissing-ls',
       'the-m',
       'pressured-ts',
+      'entanglement',
       'fish',
       'n-rooks',
       'by-a-thread',
       'by-a-thread-at-sea',
-      'entanglement',
     ];
 
     const actualOrder = techniquesInOrder.map(t => t.id);
@@ -50,6 +50,7 @@ describe('Technique Ordering', () => {
       'adjacent-row-col',
       'two-by-two',
       'exact-fill',
+      'simple-shapes',
       'cross-pressure',
       'cross-empty-patterns',
       'shared-row-column',
@@ -57,7 +58,6 @@ describe('Technique Ordering', () => {
       'pressured-exclusion',
       'adjacent-exclusion',
       'forced-placement',
-      'simple-shapes',
       'undercounting',
       'overcounting',
       'finned-counts',
@@ -68,11 +68,11 @@ describe('Technique Ordering', () => {
       'kissing-ls',
       'the-m',
       'pressured-ts',
+      'entanglement',
       'fish',
       'n-rooks',
       'by-a-thread',
       'by-a-thread-at-sea',
-      'entanglement',
     ];
 
     for (const id of allTechniqueIds) {
