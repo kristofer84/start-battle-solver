@@ -61,7 +61,7 @@ describe('subset constraint squeeze', () => {
 
     expect(hint).not.toBeNull();
     expect(hint?.kind).toBe('place-cross');
-    expect(hint?.resultCells).toEqual([{ row: 0, col: 1 }]);
+    expect(hint?.resultCells).toEqual([{ row: 1, col: 1 }]);
     expect(hint?.explanation).toContain('Subset constraint squeeze');
   });
 
@@ -74,8 +74,8 @@ describe('subset constraint squeeze', () => {
     expect(hint?.resultCells).toHaveLength(2);
     expect(hint?.resultCells).toEqual(
       expect.arrayContaining([
-        { row: 2, col: 0 },
-        { row: 2, col: 1 },
+        { row: 3, col: 2 },
+        { row: 3, col: 3 },
       ]),
     );
   });

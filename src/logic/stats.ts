@@ -94,6 +94,33 @@ function collectRegionBandConstraints(state: PuzzleState, regionId: number): Con
   const sortedRows = Array.from(rows).sort((a, b) => a - b);
   const constraints: Constraint[] = [];
 
+  const placedStars = countStars(state, cells);
+  const remaining = Math.max(0, state.def.starsPerUnit - placedStars);
+
+  const rowRemaining = Array.from({ length: state.def.size }, (_, row) => {
+    const rowPlaced = countStars(state, rowCells(state, row));
+    return Math.max(0, state.def.starsPerUnit - rowPlaced);
+  });
+
+  const regionIdSet = new Set<number>();
+  for (const regionRow of state.def.regions) {
+    for (const id of regionRow) {
+      regionIdSet.add(id);
+    }
+  }
+  const allRegionIds = Array.from(regionIdSet);
+  const regionDataCache = new Map<number, { cells: Coords[]; remaining: number }>();
+  regionDataCache.set(regionId, { cells, remaining });
+
+  const getRegionData = (id: number) => {
+    if (!regionDataCache.has(id)) {
+      const regionCellsAll = regionCells(state, id);
+      const regionRemaining = Math.max(0, state.def.starsPerUnit - countStars(state, regionCellsAll));
+      regionDataCache.set(id, { cells: regionCellsAll, remaining: regionRemaining });
+    }
+    return regionDataCache.get(id)!;
+  };
+
   for (let i = 0; i < sortedRows.length; i += 1) {
     for (let j = i; j < sortedRows.length; j += 1) {
       // Only consider contiguous bands of rows to avoid overly broad combinations
@@ -101,17 +128,54 @@ function collectRegionBandConstraints(state: PuzzleState, regionId: number): Con
 
       const startRow = sortedRows[i];
       const endRow = sortedRows[j];
+      const bandRows = [];
+      for (let r = startRow; r <= endRow; r += 1) {
+        bandRows.push(r);
+      }
+      const bandRowNeed = bandRows.reduce((sum, row) => sum + rowRemaining[row], 0);
+
       const bandCells = cells.filter((c) => c.row >= startRow && c.row <= endRow);
       const bandCandidates = emptyCells(state, bandCells);
       const outsideCells = cells.filter((c) => c.row < startRow || c.row > endRow);
       const outsideCandidates = emptyCells(state, outsideCells);
 
-      const placedStars = countStars(state, cells);
-      const remaining = state.def.starsPerUnit - placedStars;
       const maxOutsideCapacity = outsideCandidates.length;
       const minStars = Math.max(0, remaining - maxOutsideCapacity);
       const maxStars = Math.min(remaining, bandCandidates.length);
-      const bounds = normalizeBounds(minStars, maxStars);
+      let bounds = normalizeBounds(minStars, maxStars);
+
+      // Row total tightening: compare total stars needed in these rows against
+      // how many other regions can/must supply.
+      if (bandCandidates.length > 0) {
+        let otherRegionsForced = 0;
+        let otherRegionsCapacity = 0;
+
+        for (const otherRegionId of allRegionIds) {
+          if (otherRegionId === regionId) continue;
+          const { cells: otherCells, remaining: otherRemaining } = getRegionData(otherRegionId);
+          if (otherRemaining === 0) continue;
+
+          const otherInside = otherCells.filter((c) => c.row >= startRow && c.row <= endRow);
+          if (otherInside.length === 0) continue;
+          const otherInsideCandidates = emptyCells(state, otherInside);
+          if (otherInsideCandidates.length === 0) continue;
+
+          const otherOutside = otherCells.filter((c) => c.row < startRow || c.row > endRow);
+          const otherOutsideCapacity = emptyCells(state, otherOutside).length;
+          const forcedInside = Math.max(0, otherRemaining - otherOutsideCapacity);
+          const clampedForced = Math.min(otherInsideCandidates.length, forcedInside);
+          const clampedCapacity = Math.min(otherRemaining, otherInsideCandidates.length);
+
+          otherRegionsForced += clampedForced;
+          otherRegionsCapacity += clampedCapacity;
+        }
+
+        const rowLimitedMax = Math.min(bounds.maxStars, Math.max(0, bandRowNeed - otherRegionsForced));
+        const rowForcedMin = Math.min(rowLimitedMax, Math.max(0, bandRowNeed - otherRegionsCapacity));
+        const tightenedMin = Math.max(bounds.minStars, rowForcedMin);
+
+        bounds = normalizeBounds(tightenedMin, rowLimitedMax);
+      }
 
       constraints.push({
         cells: bandCandidates,
