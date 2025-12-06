@@ -416,7 +416,7 @@ function collectRegionBandConstraints(
       );
 
       if (
-        process.env.DEBUG_BAND === '1' &&
+        (typeof process !== 'undefined' && process.env?.DEBUG_BAND === '1') &&
         state.def.size === 10 &&
         regionId === 4 &&
         startRow === 1 &&
