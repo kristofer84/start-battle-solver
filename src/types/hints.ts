@@ -34,7 +34,9 @@ export type TechniqueId =
   | 'n-rooks'
   | 'entanglement'
   | 'pattern-matching'
-  | 'subset-constraint-squeeze';
+  | 'subset-constraint-squeeze'
+  // 5. Schema-based (new)
+  | 'schema-based';
 
 export type HintKind = 'place-star' | 'place-cross';
 

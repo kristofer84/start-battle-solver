@@ -31,6 +31,7 @@ import { findNRooksHint } from './techniques/nRooks';
 import { findEntanglementHint } from './techniques/entanglement';
 import { findPatternMatchingHint } from './techniques/patternMatching';
 import { findSubsetConstraintSqueezeHint } from './techniques/subsetConstraintSqueeze';
+import { findSchemaBasedHint } from './techniques/schemaBased';
 
 export interface Technique {
   id: TechniqueId;
@@ -188,6 +189,11 @@ export const techniquesInOrder: Technique[] = [
     id: 'by-a-thread-at-sea',
     name: 'By a Thread at Sea',
     findHint: findByAThreadAtSeaHint,
+  },
+  {
+    id: 'schema-based',
+    name: 'Schema-Based Logic',
+    findHint: findSchemaBasedHint,
   },
 ];
 
