@@ -39,22 +39,17 @@ describe('Forced Placement', () => {
     // Region 2 needs 2 stars, has 0 stars
     // Create constraints so that all valid placements include {0,6}
     
-    // Mark some region 2 cells as empty
+    // Place one existing star in region 2
+    state.cells[2][5] = 'star';
+
+    // Only one remaining empty cell is valid
     state.cells[0][6] = 'empty'; // {0,6} - should be forced
-    state.cells[0][7] = 'empty'; // {0,7}
-    state.cells[1][6] = 'empty'; // {1,6}
-    state.cells[1][7] = 'empty'; // {1,7}
-    state.cells[2][5] = 'empty'; // {2,5}
-    state.cells[2][7] = 'empty'; // {2,7}
-    
-    // Place stars to constrain placements:
-    // Make {1,6} and {1,7} invalid (adjacent to stars)
-    state.cells[1][5] = 'star'; // Adjacent to {1,6}
-    state.cells[2][6] = 'star'; // Adjacent to {1,6} and {1,7}
-    
-    // Make {0,7} invalid (row quota full)
-    state.cells[0][0] = 'star';
-    state.cells[0][1] = 'star'; // Row 0 now has 2 stars, so {0,7} can't have a star
+
+    // Exclude all other region 2 cells
+    state.cells[0][7] = 'cross';
+    state.cells[1][6] = 'cross';
+    state.cells[1][7] = 'cross';
+    state.cells[2][7] = 'cross';
     
     // Make {2,5} and {2,7} adjacent to each other (diagonal, so can't both be stars)
     // They're already adjacent
@@ -113,24 +108,16 @@ describe('Forced Placement', () => {
     
     // Mark region 2 cells as empty
     state.cells[0][6] = 'empty'; // {0,6} - should be forced
-    state.cells[0][7] = 'empty'; // {0,7}
-    state.cells[1][6] = 'empty'; // {1,6}
-    state.cells[1][7] = 'empty'; // {1,7}
+
+    // Place an existing star to satisfy one of the quotas
+    state.cells[2][5] = 'star';
+
+    // Exclude other region cells directly
+    state.cells[0][7] = 'cross';
+    state.cells[1][6] = 'cross';
+    state.cells[1][7] = 'cross';
     
-    // Place a star in row 0 to constrain placements
-    state.cells[0][0] = 'star';
-    
-    // Place a star in row 1 to constrain placements
-    state.cells[1][0] = 'star';
-    
-    // Place a star adjacent to {0,7}, {1,6}, {1,7} to make them invalid
-    state.cells[0][8] = 'star'; // Adjacent to {0,7}
-    state.cells[1][5] = 'star'; // Adjacent to {1,6}
-    state.cells[2][6] = 'star'; // Adjacent to {1,6} and {1,7}
-    
-    // Now region 2 needs 1 more star (has 1 already from {2,6})
-    // Valid placements: {0,6} is the only valid cell (others are adjacent to stars or row quota full)
-    // So {0,6} must be a star
+    // Now region 2 needs 1 more star and {0,6} is the only available cell
     
     const hint = findForcedPlacementHint(state);
     
@@ -178,22 +165,13 @@ describe('Forced Placement', () => {
     // Constrain so that all valid 2-star placements include {0,6}
     
     state.cells[0][6] = 'empty'; // {0,6} - should be forced
-    state.cells[0][7] = 'empty'; // {0,7}
-    state.cells[1][6] = 'empty'; // {1,6}
-    state.cells[1][7] = 'empty'; // {1,7}
     state.cells[2][5] = 'empty'; // {2,5}
-    state.cells[2][7] = 'empty'; // {2,7}
-    
-    // Place stars to constrain: make {1,6} and {1,7} adjacent to stars
-    state.cells[1][5] = 'star'; // Adjacent to {1,6}
-    state.cells[2][6] = 'star'; // Adjacent to {1,6} and {1,7}
-    
-    // Make {2,5} and {2,7} adjacent to each other (so can't both be stars)
-    // They're already adjacent (diagonal)
-    
-    // Make {0,7} have row quota full
-    state.cells[0][0] = 'star';
-    state.cells[0][1] = 'star'; // Row 0 now has 2 stars
+
+    // Exclude other region cells directly
+    state.cells[0][7] = 'cross';
+    state.cells[1][6] = 'cross';
+    state.cells[1][7] = 'cross';
+    state.cells[2][7] = 'cross';
     
     // Now valid placements for 2 stars in region 2:
     // - {0,6} + {2,5} (not adjacent, valid)

@@ -190,6 +190,9 @@ export function findForcedPlacementHint(state: PuzzleState): Hint | null {
       candidateCells,
       remaining
     );
+
+    // Debugging support: surface candidate counts for tests
+    // console.log({ regionId, candidateCount: candidateCells.length, remaining, sets: allPlacementSets.length });
     
     if (allPlacementSets.length === 0) continue;
     
