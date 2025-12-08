@@ -2,7 +2,8 @@
  * Cell-level helper functions
  */
 
-import type { BoardState, CellId, Coords } from '../model/types';
+import { Coords } from '../../../types/puzzle';
+import type { BoardState, CellId } from '../model/types';
 import { CellState, cellIdToCoord } from '../model/types';
 
 /**
@@ -17,7 +18,7 @@ export function getStarCountInCells(state: BoardState, cells: CellId[]): number 
  */
 export function getUnknownOrStarCandidates(state: BoardState, cells: CellId[]): CellId[] {
   return cells.filter(
-    cellId => state.cellStates[cellId] === CellState.Unknown || state.cellStates[cellId] === CellState.Star
+    cellId => state.cellStates[cellId] === CellState.Unknown
   );
 }
 
