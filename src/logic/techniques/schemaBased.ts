@@ -9,6 +9,7 @@ import type { PuzzleState } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import { findSchemaHints } from '../schemas/runtime';
 import { colCells, neighbors8, rowCells } from '../helpers';
+import { validateState } from '../validation';
 
 /**
  * Find hint using schema-based system
@@ -17,23 +18,36 @@ export function findSchemaBasedHint(state: PuzzleState): Hint | null {
   const hint = findSchemaHints(state);
   if (!hint) return null;
 
-  // Convert to proper Hint format
-  const resultCells: Array<{ row: number; col: number }> = [
-    ...hint.forcedStars.map(c => ({ row: c.row, col: c.col })),
-    ...hint.forcedCrosses.map(c => ({ row: c.row, col: c.col })),
-  ];
+  const forcedStars = hint.forcedStars ?? [];
+  const forcedCrosses = hint.forcedCrosses ?? [];
+  const hasStars = forcedStars.length > 0;
+  const hasCrosses = forcedCrosses.length > 0;
 
-  if (resultCells.length === 0) return null;
+  if (!hasStars && !hasCrosses) {
+    return null;
+  }
+
+  const kind: 'place-star' | 'place-cross' = hasStars ? 'place-star' : 'place-cross';
+  const resultCells =
+    (hasStars ? forcedStars : forcedCrosses).map(cell => ({ row: cell.row, col: cell.col }));
 
   // Validate that applying the hint would keep the puzzle state sound.
   // Schema-based logic is experimental, so we defensively verify the
   // deductions before surfacing them to the user/tests.
   const candidateState = state.cells.map(row => [...row]);
-  for (const cell of resultCells) {
-    const value = hint.forcedStars.some(s => s.row === cell.row && s.col === cell.col)
-      ? 'star'
-      : 'cross';
-    candidateState[cell.row][cell.col] = value;
+
+  for (const cell of forcedStars) {
+    if (candidateState[cell.row][cell.col] === 'cross') {
+      return null;
+    }
+    candidateState[cell.row][cell.col] = 'star';
+  }
+
+  for (const cell of forcedCrosses) {
+    if (candidateState[cell.row][cell.col] === 'star') {
+      return null;
+    }
+    candidateState[cell.row][cell.col] = 'cross';
   }
 
   const { size, starsPerUnit, regions } = state.def;
@@ -69,8 +83,9 @@ export function findSchemaBasedHint(state: PuzzleState): Hint | null {
     }
   }
 
-  // Determine hint kind based on first deduction
-  const kind: 'place-star' | 'place-cross' = hint.forcedStars.length > 0 ? 'place-star' : 'place-cross';
+  if (validateState({ ...state, cells: candidateState }).length > 0) {
+    return null;
+  }
 
   return {
     id: hint.id,
