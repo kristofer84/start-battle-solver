@@ -76,6 +76,11 @@ export const techniquesInOrder: Technique[] = [
     findHint: findSimpleShapesHint,
   },
   {
+    id: 'cross-empty-patterns',
+    name: 'Cross-Empty Patterns',
+    findHint: findCrossEmptyPatternsHint,
+  },
+  {
     id: 'entanglement',
     name: 'Entanglement',
     findHint: findEntanglementHint,
@@ -84,11 +89,6 @@ export const techniquesInOrder: Technique[] = [
     id: 'cross-pressure',
     name: 'Cross Pressure',
     findHint: findCrossPressureHint,
-  },
-  {
-    id: 'cross-empty-patterns',
-    name: 'Cross-Empty Patterns',
-    findHint: findCrossEmptyPatternsHint,
   },
   {
     id: 'shared-row-column',
