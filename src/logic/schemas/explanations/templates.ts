@@ -32,6 +32,8 @@ export function renderExplanation(
       case 'countStarsInBand': {
         const band = step.entities.band;
         const starsNeeded = step.entities.starsNeeded;
+        if (starsNeeded === undefined) break;
+
         if (band?.kind === 'rowBand') {
           lines.push(`${formatRowBand(band.rows)} together must contain ${starsNeeded} star${starsNeeded !== 1 ? 's' : ''}.`);
         } else if (band?.kind === 'colBand') {
