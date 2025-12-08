@@ -3,6 +3,7 @@ import type { Hint, TechniqueId } from '../types/hints';
 import { addLogEntry, store } from '../store/puzzleStore';
 import { findTrivialMarksHint } from './techniques/trivialMarks';
 import { findLockedLineHint } from './techniques/lockedLine';
+import { findSaturationHint } from './techniques/saturation';
 import { findAdjacentRowColHint } from './techniques/adjacentRowCol';
 import { findTwoByTwoHint } from './techniques/twoByTwo';
 import { findCrossPressureHint } from './techniques/crossPressure';
@@ -48,6 +49,11 @@ export const techniquesInOrder: Technique[] = [
     id: 'locked-line',
     name: 'Locked Row/Column',
     findHint: findLockedLineHint,
+  },
+  {
+    id: 'saturation',
+    name: 'Saturation',
+    findHint: findSaturationHint,
   },
   {
     id: 'adjacent-row-col',
