@@ -29,6 +29,8 @@ import {
   clearLog,
   setPreserveLog,
   setShowLog,
+  setShowDebugLog,
+  clearConsoleLog,
   setRegionTheme,
   setTechniqueEnabled,
   enableAllTechniques,
@@ -36,6 +38,7 @@ import {
   addLogEntry,
   type RegionTheme,
 } from './store/puzzleStore';
+import { setupConsoleInterceptor } from './utils/consoleInterceptor';
 import type { Coords, CellState } from './types/puzzle';
 import type { TechniqueId } from './types/hints';
 import { validateState, validateRegions, getRuleViolations, isPuzzleComplete } from './logic/validation';
@@ -44,6 +47,7 @@ import { findNextHint, techniquesInOrder } from './logic/techniques';
 const importText = ref('');
 const importError = ref<string | null>(null);
 const logPanelRef = ref<HTMLElement | null>(null);
+const debugLogPanelRef = ref<HTMLElement | null>(null);
 const selectedPuzzle = ref<string>('');
 const showEntanglementViewer = ref(false);
 const selectedPatternId = ref<string | null>(null);
@@ -375,6 +379,8 @@ function handleKeyDown(event: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown);
+  // Setup console interceptor to capture debug logs
+  setupConsoleInterceptor();
 });
 
 onUnmounted(() => {
@@ -514,12 +520,31 @@ function scrollLogToBottom() {
   });
 }
 
+// Auto-scroll debug log to bottom when new entries are added
+function scrollDebugLogToBottom() {
+  nextTick(() => {
+    if (debugLogPanelRef.value) {
+      debugLogPanelRef.value.scrollTop = debugLogPanelRef.value.scrollHeight;
+    }
+  });
+}
+
 // Watch for changes to log entries and auto-scroll
 watch(
   () => [store.logEntries.length, store.preservedLogEntries.length, store.showLog],
   () => {
     if (store.showLog) {
       scrollLogToBottom();
+    }
+  }
+);
+
+// Watch for changes to console log entries and auto-scroll
+watch(
+  () => [store.consoleLogEntries.length, store.showDebugLog],
+  () => {
+    if (store.showDebugLog) {
+      scrollDebugLogToBottom();
     }
   }
 );
@@ -683,6 +708,9 @@ watch(
           <button type="button" class="btn secondary" @click="setShowLog(!store.showLog)">
             {{ store.showLog ? 'Hide' : 'Show' }} log
           </button>
+          <button type="button" class="btn secondary" @click="setShowDebugLog(!store.showDebugLog)">
+            {{ store.showDebugLog ? 'Hide' : 'Show' }} debug log
+          </button>
           <button type="button" class="btn secondary" @click="showTechniqueManager = !showTechniqueManager">
             {{ showTechniqueManager ? 'Hide' : 'Show' }} techniques ({{ enabledTechniqueCount }}/{{ techniquesInOrder.length }})
           </button>
@@ -693,6 +721,10 @@ watch(
           <button v-if="store.showLog && (store.logEntries.length > 0 || store.preservedLogEntries.length > 0)"
             type="button" class="btn secondary" @click="clearLog(); setPreserveLog(false);">
             Clear log
+          </button>
+          <button v-if="store.showDebugLog && store.consoleLogEntries.length > 0"
+            type="button" class="btn secondary" @click="clearConsoleLog()">
+            Clear debug log
           </button>
         </div>
 
@@ -767,6 +799,28 @@ watch(
 
           <div v-if="store.logEntries.length === 0 && store.preservedLogEntries.length === 0" class="log-empty">
             No log entries yet. Request a hint to see solver progress.
+          </div>
+        </div>
+
+        <div v-if="store.showDebugLog" ref="debugLogPanelRef" class="debug-log-panel">
+          <div class="debug-log-header">
+            <div class="log-section-header">Console Debug Log</div>
+            <div class="debug-log-count">{{ store.consoleLogEntries.length }} entries</div>
+          </div>
+          <div v-if="store.consoleLogEntries.length > 0" class="debug-log-entries">
+            <div v-for="(entry, index) in store.consoleLogEntries" :key="index" 
+              :class="['debug-log-entry', `debug-log-entry--${entry.level}`]">
+              <div class="debug-log-header-line">
+                <span class="debug-log-timestamp">{{ formatLogTimestamp(entry.timestamp) }}</span>
+                <span :class="['debug-log-level', `debug-log-level--${entry.level}`]">
+                  {{ entry.level.toUpperCase() }}
+                </span>
+              </div>
+              <div class="debug-log-content">{{ entry.formatted }}</div>
+            </div>
+          </div>
+          <div v-else class="log-empty">
+            No console logs yet. Console output will appear here.
           </div>
         </div>
       </div>

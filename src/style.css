@@ -1153,7 +1153,128 @@ body {
   color: #9ca3af;
   font-style: italic;
   text-align: center;
-  padding: 1rem;
+}
+
+/* Debug log panel styles */
+.debug-log-panel {
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  height: 400px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.75rem;
+  margin-top: 1rem;
+}
+
+.debug-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.debug-log-count {
+  color: #9ca3af;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.debug-log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.debug-log-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.4rem;
+  border-radius: 0.25rem;
+  background: rgba(30, 41, 59, 0.5);
+  border-left: 3px solid rgba(148, 163, 184, 0.5);
+  line-height: 1.4;
+}
+
+.debug-log-entry--log {
+  border-left-color: #60a5fa;
+}
+
+.debug-log-entry--debug {
+  border-left-color: #a78bfa;
+}
+
+.debug-log-entry--info {
+  border-left-color: #34d399;
+}
+
+.debug-log-entry--warn {
+  border-left-color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.debug-log-entry--error {
+  border-left-color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.debug-log-header-line {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.2rem;
+}
+
+.debug-log-timestamp {
+  color: #9ca3af;
+  min-width: 100px;
+  font-size: 0.7rem;
+}
+
+.debug-log-level {
+  font-weight: 600;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.debug-log-level--log {
+  background: rgba(96, 165, 250, 0.2);
+  color: #60a5fa;
+}
+
+.debug-log-level--debug {
+  background: rgba(167, 139, 250, 0.2);
+  color: #a78bfa;
+}
+
+.debug-log-level--info {
+  background: rgba(52, 211, 153, 0.2);
+  color: #34d399;
+}
+
+.debug-log-level--warn {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.debug-log-level--error {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+.debug-log-content {
+  color: #e5e7eb;
+  padding-left: 0.5rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.7rem;
 }
 
 .technique-manager {

@@ -20,6 +20,13 @@ export interface LogEntry {
   testedTechniques: TechniqueTest[];
 }
 
+export interface ConsoleLogEntry {
+  timestamp: number;
+  level: 'log' | 'debug' | 'info' | 'warn' | 'error';
+  args: unknown[];
+  formatted: string;
+}
+
 export type RegionTheme = 'default' | 'pastel' | 'vibrant' | 'monochrome' | 'ocean' | 'forest' | 'sunset' | 'neon' | 'warm' | 'cool';
 
 interface StoreState {
@@ -37,6 +44,8 @@ interface StoreState {
   preservedLogEntries: LogEntry[];
   preserveLog: boolean;
   showLog: boolean;
+  consoleLogEntries: ConsoleLogEntry[];
+  showDebugLog: boolean;
   regionTheme: RegionTheme;
   isThinking: boolean;
   currentTechnique: string | null;
@@ -54,6 +63,7 @@ interface StoredUIState {
   preserveLog?: boolean;
   regionTheme?: RegionTheme;
   disabledTechniques?: TechniqueId[];
+  showDebugLog?: boolean;
 }
 
 function loadInitialPuzzle(): PuzzleState {
@@ -116,6 +126,7 @@ function currentUIState(): StoredUIState {
     preserveLog: store.preserveLog,
     regionTheme: store.regionTheme,
     disabledTechniques: store.disabledTechniques,
+    showDebugLog: store.showDebugLog,
   };
 }
 
@@ -153,6 +164,8 @@ export const store = reactive<StoreState>({
   preservedLogEntries: [],
   preserveLog: uiState.preserveLog ?? false,
   showLog: uiState.showLog ?? false,
+  consoleLogEntries: [],
+  showDebugLog: uiState.showDebugLog ?? false,
   regionTheme: uiState.regionTheme || 'default',
   isThinking: false,
   currentTechnique: null,
@@ -188,6 +201,24 @@ export function setPreserveLog(preserve: boolean) {
 export function setShowLog(show: boolean) {
   store.showLog = show;
   persistUIState();
+}
+
+export function setShowDebugLog(show: boolean) {
+  store.showDebugLog = show;
+  persistUIState();
+}
+
+export function addConsoleLogEntry(entry: ConsoleLogEntry) {
+  store.consoleLogEntries.push(entry);
+  // Limit console log entries to prevent memory issues (keep last 1000 entries)
+  const MAX_CONSOLE_LOGS = 1000;
+  if (store.consoleLogEntries.length > MAX_CONSOLE_LOGS) {
+    store.consoleLogEntries.shift();
+  }
+}
+
+export function clearConsoleLog() {
+  store.consoleLogEntries = [];
 }
 
 export function setMode(mode: Mode) {
