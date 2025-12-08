@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createEmptyPuzzleState, type PuzzleState } from '../src/types/puzzle';
-import { findPatternMatchingHint } from '../src/logic/techniques/patternMatching';
+import { findEntanglementPatternHint } from '../src/logic/techniques/entanglementPatterns';
 import { getCell } from '../src/logic/helpers';
 
 /**
@@ -86,7 +86,7 @@ describe('Debug Pattern Matching - User Puzzle', () => {
     }
     
     console.log('\n=== Testing Pattern Matching ===');
-    const hint = findPatternMatchingHint(state);
+    const hint = findEntanglementPatternHint(state);
     
     if (hint) {
       console.log(`\nFound hint: ${hint.technique}`);

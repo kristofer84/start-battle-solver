@@ -6,7 +6,7 @@ import { TEST_REGIONS } from './testBoard';
 
 describe('Technique Ordering', () => {
   it('should have all techniques in the correct order per requirements', () => {
-    // Techniques are ordered with more specific pattern-matching techniques
+    // Techniques are ordered with more specific entanglement-patterns techniques
     // before general uniqueness techniques (by-a-thread) to ensure they get tried first
     const expectedOrder: TechniqueId[] = [
       'trivial-marks',
@@ -34,7 +34,7 @@ describe('Technique Ordering', () => {
       'the-m',
       'pressured-ts',
       'schema-based',
-      'pattern-matching',
+      'entanglement-patterns',
       'fish',
       'n-rooks',
       'by-a-thread',
@@ -72,7 +72,7 @@ describe('Technique Ordering', () => {
       'the-m',
       'pressured-ts',
       'schema-based',
-      'pattern-matching',
+      'entanglement-patterns',
       'fish',
       'n-rooks',
       'by-a-thread',

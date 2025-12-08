@@ -33,7 +33,14 @@ function applyHint(state: PuzzleState): boolean {
   if (!hint) return false;
   
   for (const cell of hint.resultCells) {
-    const value = hint.kind === 'place-star' ? 'star' : 'cross';
+    // For schema-based hints with mixed types, use schemaCellTypes
+    let value: 'star' | 'cross';
+    if (hint.schemaCellTypes) {
+      const cellType = hint.schemaCellTypes.get(`${cell.row},${cell.col}`);
+      value = cellType === 'star' ? 'star' : 'cross';
+    } else {
+      value = hint.kind === 'place-star' ? 'star' : 'cross';
+    }
     state.cells[cell.row][cell.col] = value;
   }
   
@@ -968,7 +975,7 @@ describe('Integration Tests: Technique Verification', () => {
       'the-m',
       'pressured-ts',
       'schema-based',
-      'pattern-matching',
+      'entanglement-patterns',
       'fish',
       'n-rooks',
       'by-a-thread',
@@ -1011,7 +1018,7 @@ describe('Integration Tests: Technique Verification', () => {
       'the-m',
       'pressured-ts',
       'schema-based',
-      'pattern-matching',
+      'entanglement-patterns',
       'fish',
       'n-rooks',
       'by-a-thread',

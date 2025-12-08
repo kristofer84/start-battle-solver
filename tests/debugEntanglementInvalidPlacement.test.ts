@@ -130,9 +130,17 @@ describe('Debug Entanglement Invalid Placement', () => {
       
       for (const cell of hint.resultCells) {
         const currentState = getCell(testState, cell);
-        console.log(`\nApplying ${hint.kind} at (${cell.row},${cell.col}), current state: ${currentState}`);
+        // For schema-based hints with mixed types, use schemaCellTypes
+        let targetKind: 'place-star' | 'place-cross';
+        if (hint.schemaCellTypes) {
+          const cellType = hint.schemaCellTypes.get(`${cell.row},${cell.col}`);
+          targetKind = cellType === 'star' ? 'place-star' : 'place-cross';
+        } else {
+          targetKind = hint.kind;
+        }
+        console.log(`\nApplying ${targetKind} at (${cell.row},${cell.col}), current state: ${currentState}`);
         
-        if (hint.kind === 'place-star') {
+        if (targetKind === 'place-star') {
           if (currentState === 'star') {
             console.log(`  ERROR: Trying to place star on cell that's already a star!`);
           } else if (currentState === 'cross') {
@@ -140,7 +148,7 @@ describe('Debug Entanglement Invalid Placement', () => {
           } else {
             testState.cells[cell.row][cell.col] = 'star';
           }
-        } else if (hint.kind === 'place-cross') {
+        } else if (targetKind === 'place-cross') {
           if (currentState === 'star') {
             console.log(`  ERROR: Trying to place cross on cell that's already a star!`);
           } else {

@@ -332,10 +332,21 @@ export function applyHintToState(hint: Hint | null) {
   
   pushToHistory();
   for (const c of hint.resultCells) {
-    if (hint.kind === 'place-cross') {
-      store.puzzle.cells[c.row][c.col] = 'cross';
-    } else if (hint.kind === 'place-star') {
-      store.puzzle.cells[c.row][c.col] = 'star';
+    // For schema-based hints with mixed types, use schemaCellTypes
+    if (hint.schemaCellTypes) {
+      const cellType = hint.schemaCellTypes.get(`${c.row},${c.col}`);
+      if (cellType === 'star') {
+        store.puzzle.cells[c.row][c.col] = 'star';
+      } else if (cellType === 'cross') {
+        store.puzzle.cells[c.row][c.col] = 'cross';
+      }
+    } else {
+      // Standard hint application
+      if (hint.kind === 'place-cross') {
+        store.puzzle.cells[c.row][c.col] = 'cross';
+      } else if (hint.kind === 'place-star') {
+        store.puzzle.cells[c.row][c.col] = 'star';
+      }
     }
   }
   savePuzzleToStorage(store.puzzle);

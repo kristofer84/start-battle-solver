@@ -27,9 +27,34 @@ export function findSchemaBasedHint(state: PuzzleState): Hint | null {
     return null;
   }
 
+  // When both stars and crosses are present, we need to return both
+  // Use schemaCellTypes to track which cells are stars vs crosses
   const kind: 'place-star' | 'place-cross' = hasStars ? 'place-star' : 'place-cross';
-  const resultCells =
-    (hasStars ? forcedStars : forcedCrosses).map(cell => ({ row: cell.row, col: cell.col }));
+  const resultCells: Array<{ row: number; col: number }> = [];
+  const schemaCellTypes = new Map<string, 'star' | 'cross'>();
+  
+  // Add all stars and crosses to resultCells, but filter out cells that are already correctly filled
+  for (const cell of forcedStars) {
+    // Skip if cell is already a star
+    if (state.cells[cell.row][cell.col] === 'star') continue;
+    // Skip if cell is already a cross (conflict)
+    if (state.cells[cell.row][cell.col] === 'cross') continue;
+    resultCells.push({ row: cell.row, col: cell.col });
+    schemaCellTypes.set(`${cell.row},${cell.col}`, 'star');
+  }
+  for (const cell of forcedCrosses) {
+    // Skip if cell is already a cross
+    if (state.cells[cell.row][cell.col] === 'cross') continue;
+    // Skip if cell is already a star (conflict)
+    if (state.cells[cell.row][cell.col] === 'star') continue;
+    resultCells.push({ row: cell.row, col: cell.col });
+    schemaCellTypes.set(`${cell.row},${cell.col}`, 'cross');
+  }
+  
+  // If no valid cells to change, return null
+  if (resultCells.length === 0) {
+    return null;
+  }
 
   // Validate that applying the hint would keep the puzzle state sound.
   // Schema-based logic is experimental, so we defensively verify the
@@ -94,6 +119,8 @@ export function findSchemaBasedHint(state: PuzzleState): Hint | null {
     resultCells,
     explanation: hint.explanation,
     highlights: hint.highlights,
+    // Include schemaCellTypes when both stars and crosses are present
+    schemaCellTypes: hasStars && hasCrosses ? schemaCellTypes : undefined,
   };
 }
 

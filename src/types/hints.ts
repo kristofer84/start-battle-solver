@@ -33,7 +33,7 @@ export type TechniqueId =
   | 'fish'
   | 'n-rooks'
   | 'entanglement'
-  | 'pattern-matching'
+  | 'entanglement-patterns'
   // 5. Schema-based (new)
   | 'schema-based';
 
@@ -54,6 +54,8 @@ export interface Hint {
   explanation: string;
   highlights?: HintHighlight;
   patternId?: string; // For entanglement hints: the pattern ID that was matched
+  // For schema-based hints: maps cell coordinates to their type when both stars and crosses are present
+  schemaCellTypes?: Map<string, 'star' | 'cross'>; // key: "row,col"
 }
 
 

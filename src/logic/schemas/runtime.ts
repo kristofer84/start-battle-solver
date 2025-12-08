@@ -6,8 +6,8 @@
 import type { PuzzleState } from '../../types/puzzle';
 import type { Hint, HintHighlight } from '../../types/hints';
 import { puzzleStateToBoardState } from './model/state';
-import { applyAllSchemas, type SchemaContext } from './registry';
-import type { SchemaApplication } from './types';
+import { applyAllSchemas } from './registry';
+import type { SchemaApplication, SchemaContext } from './types';
 import { renderExplanation } from './explanations/templates';
 import { getAllPatternApplications } from '../patterns/runtime';
 
@@ -94,8 +94,17 @@ function schemaApplicationToHint(app: SchemaApplication, state: PuzzleState): {
 
 /**
  * Find schema-based hints for a puzzle state
+ * Returns an intermediate format with forcedStars and forcedCrosses
+ * that will be converted to a Hint by findSchemaBasedHint
  */
-export function findSchemaHints(state: PuzzleState): Hint | null {
+export function findSchemaHints(state: PuzzleState): {
+  id: string;
+  technique: 'schema-based';
+  explanation: string;
+  forcedStars: Array<{ row: number; col: number }>;
+  forcedCrosses: Array<{ row: number; col: number }>;
+  highlights?: HintHighlight;
+} | null {
   // Convert to board state
   const boardState = puzzleStateToBoardState(state);
   
@@ -107,12 +116,18 @@ export function findSchemaHints(state: PuzzleState): Hint | null {
   // Apply all schemas
   let applications = applyAllSchemas(ctx);
   
-  // Also try pattern matching
-  const patternApplications = getAllPatternApplications(ctx);
-  applications = [...applications, ...patternApplications];
+  // Schema-based pattern matching is disabled.
+  // The entanglement patterns technique (entanglementPatterns.ts) works well
+  // and is separate from this schema-based pattern system.
+  // Schema-based patterns require more sophisticated validation to ensure they match
+  // the logical structure (region IDs, quotas, band configurations) correctly.
+  // For now, we rely on direct schema implementations which work correctly.
+  // const patternApplications = getAllPatternApplications(ctx);
+  // applications = [...applications, ...patternApplications];
   
   // Filter out applications with no valid deductions (cells already filled)
-  applications = applications.filter(app => {
+  // Create new application objects to avoid mutating the original
+  applications = applications.map(app => {
     const validDeductions = app.deductions.filter(ded => {
       const row = Math.floor(ded.cell / state.def.size);
       const col = ded.cell % state.def.size;
@@ -129,17 +144,28 @@ export function findSchemaHints(state: PuzzleState): Hint | null {
       return true; // Valid deduction
     });
     
-    // Update deductions to only include valid ones
-    app.deductions = validDeductions;
-    
-    // Only keep applications with at least one valid deduction
-    return validDeductions.length > 0;
-  });
+    // Return a new application object with filtered deductions
+    return {
+      ...app,
+      deductions: validDeductions,
+    };
+  }).filter(app => app.deductions.length > 0);
   
   if (applications.length === 0) {
     return null;
   }
-  
+
+  // Debug: Log which schema produced the hint
+  const firstApp = applications[0];
+  if (firstApp.deductions.length > 10) {
+    console.warn(`[SCHEMA DEBUG] Schema ${firstApp.schemaId} produced ${firstApp.deductions.length} deductions:`, 
+      firstApp.deductions.slice(0, 5).map(d => {
+        const row = Math.floor(d.cell / state.def.size);
+        const col = d.cell % state.def.size;
+        return `${d.type}@(${row},${col})`;
+      }).join(', '), '...');
+  }
+
   // Return the first (highest priority) application as a hint
   // In full implementation, we might want to return multiple hints or combine them
   return schemaApplicationToHint(applications[0], state);

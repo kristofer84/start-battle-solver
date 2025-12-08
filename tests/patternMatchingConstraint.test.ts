@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createEmptyPuzzleState, type PuzzleState } from '../src/types/puzzle';
-import { findPatternMatchingHint } from '../src/logic/techniques/patternMatching';
+import { findEntanglementPatternHint } from '../src/logic/techniques/entanglementPatterns';
 import { getCell } from '../src/logic/helpers';
 import { evaluateFeature } from '../src/logic/entanglements/features';
 
@@ -81,7 +81,7 @@ describe('Pattern Matching with candidate_on_outer_ring constraint', () => {
     // The candidate [5,2] with offset (1,1) would be at (6,3) - NOT on ring 1
     setCells(state, [[2, 2], [4, 5]], []);
     
-    const hint = findPatternMatchingHint(state);
+    const hint = findEntanglementPatternHint(state);
     
     // This should NOT match because candidate (6,3) is not on ring 1
     expect(hint).toBeNull();
@@ -106,7 +106,7 @@ describe('Pattern Matching with candidate_on_outer_ring constraint', () => {
     // Then candidate [5, 2] with offset (0, -1) = (5, 1) - col 1 is on ring 1!
     setCells(state, [[1, 0], [3, 3]], []);
     
-    const hint = findPatternMatchingHint(state);
+    const hint = findEntanglementPatternHint(state);
     
     if (hint) {
       console.log(`Found hint: ${hint.explanation}`);
@@ -150,7 +150,7 @@ describe('Pattern Matching with candidate_on_outer_ring constraint', () => {
     // are NOT considered ring 1
     setCells(state, [[0, 0], [2, 3]], []);
     
-    const hint = findPatternMatchingHint(state);
+    const hint = findEntanglementPatternHint(state);
     
     // This might match an unconstrained rule, but if it matches the constrained rule [39220f],
     // the candidate should NOT be on the actual edge
@@ -171,7 +171,7 @@ describe('Pattern Matching with candidate_on_outer_ring constraint', () => {
     // Candidate [5,2] with offset (1,1) = (6,3) - interior, not on ring 1
     setCells(state, [[2, 2], [4, 5]], []);
     
-    const hint = findPatternMatchingHint(state);
+    const hint = findEntanglementPatternHint(state);
     
     // If hint matches pattern [39220f], it should not have found a candidate
     // because (6,3) is not on ring 1

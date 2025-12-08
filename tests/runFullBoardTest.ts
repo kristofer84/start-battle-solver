@@ -53,7 +53,14 @@ function applyHint(state: PuzzleState): { applied: boolean; cellsChanged: [numbe
   const cellsChanged: [number, number, string][] = [];
   for (const cell of hint.resultCells) {
     const oldValue = state.cells[cell.row][cell.col];
-    const newValue = hint.kind === 'place-star' ? 'star' : 'cross';
+    // For schema-based hints with mixed types, use schemaCellTypes
+    let newValue: 'star' | 'cross';
+    if (hint.schemaCellTypes) {
+      const cellType = hint.schemaCellTypes.get(`${cell.row},${cell.col}`);
+      newValue = cellType === 'star' ? 'star' : 'cross';
+    } else {
+      newValue = hint.kind === 'place-star' ? 'star' : 'cross';
+    }
     if (oldValue !== newValue) {
       state.cells[cell.row][cell.col] = newValue;
       cellsChanged.push([cell.row, cell.col, newValue]);
@@ -104,7 +111,14 @@ async function runTest(puzzleIndex: number, puzzleStr: string): Promise<TestResu
     const { regions, expectedStars } = parsePuzzle(puzzleStr);
     
     // Set disabled techniques for this test (each test runs independently)
-    store.disabledTechniques = ['schema-based'];
+    // Schema-based is now enabled after fixing bugs:
+    // 1. ✅ Fixed: getCandidatesInRegionAndRows/Cols now only returns unknown cells (not stars)
+    // 2. ✅ Fixed: getRegionBandQuota and allHaveKnownBandQuota now only count unknown cells as candidates
+    // 3. ✅ Fixed: D2 schema now correctly compares remaining stars needed vs unknown candidates
+    // 4. ✅ Fixed: Now returns both stars and crosses when both are present (via schemaCellTypes)
+    // 5. ✅ Fixed: Mutation bug in runtime.ts
+    // 6. ✅ Fixed: Filter out already-filled cells
+    store.disabledTechniques = [];
     
     const state = createEmptyPuzzleState({
       size: 10,

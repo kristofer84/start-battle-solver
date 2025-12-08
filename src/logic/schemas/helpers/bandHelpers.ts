@@ -152,6 +152,7 @@ export function computeRemainingStarsInBand(
 
 /**
  * Get candidate cells in a region that are also in specified rows
+ * Candidates are only unknown cells (not already stars or crosses)
  */
 export function getCandidatesInRegionAndRows(
   region: Region,
@@ -163,12 +164,14 @@ export function getCandidatesInRegionAndRows(
   
   return region.cells.filter(cellId => {
     const row = Math.floor(cellId / size);
-    return rowSet.has(row) && (state.cellStates[cellId] === 0 || state.cellStates[cellId] === 1);
+    // Only return unknown cells (CellState.Unknown = 0)
+    return rowSet.has(row) && state.cellStates[cellId] === 0;
   });
 }
 
 /**
  * Get candidate cells in a region that are also in specified columns
+ * Candidates are only unknown cells (not already stars or crosses)
  */
 export function getCandidatesInRegionAndCols(
   region: Region,
@@ -180,7 +183,8 @@ export function getCandidatesInRegionAndCols(
   
   return region.cells.filter(cellId => {
     const col = cellId % size;
-    return colSet.has(col) && (state.cellStates[cellId] === 0 || state.cellStates[cellId] === 1);
+    // Only return unknown cells (CellState.Unknown = 0)
+    return colSet.has(col) && state.cellStates[cellId] === 0;
   });
 }
 
@@ -228,14 +232,14 @@ export function getRegionBandQuota(
   // For partial regions, compute based on constraints
   const remainingStars = region.starsRequired - getStarCountInRegion(region, state);
   
-  // Get candidate cells in band
+  // Get candidate cells in band (only unknown cells)
   const candidatesInBand = cellsInBand.filter(
-    cellId => state.cellStates[cellId] === 0 || state.cellStates[cellId] === 1
+    cellId => state.cellStates[cellId] === 0 // CellState.Unknown
   );
   
   // If all remaining candidates are in the band, region must place all remaining stars there
   const allCandidates = region.cells.filter(
-    cellId => state.cellStates[cellId] === 0 || state.cellStates[cellId] === 1
+    cellId => state.cellStates[cellId] === 0 // CellState.Unknown
   );
   
   if (candidatesInBand.length === allCandidates.length && remainingStars > 0) {
@@ -269,7 +273,7 @@ export function allHaveKnownBandQuota(
     const quota = getRegionBandQuota(region, band, state);
     const cellsInBand = getCellsOfRegionInBand(region, band, state);
     const candidatesInBand = cellsInBand.filter(
-      cellId => state.cellStates[cellId] === 0 || state.cellStates[cellId] === 1
+      cellId => state.cellStates[cellId] === 0 // CellState.Unknown
     );
     
     // A quota is "known" if:
@@ -278,7 +282,7 @@ export function allHaveKnownBandQuota(
     // 3. Region has no remaining stars (quota = starsInBand)
     const remainingStars = region.starsRequired - getStarCountInRegion(region, state);
     const allCandidates = region.cells.filter(
-      cellId => state.cellStates[cellId] === 0 || state.cellStates[cellId] === 1
+      cellId => state.cellStates[cellId] === 0 // CellState.Unknown
     );
     
     const isKnown = 

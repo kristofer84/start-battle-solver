@@ -29,7 +29,7 @@ import { findPressuredTsHint } from './techniques/pressuredTs';
 import { findFishHint } from './techniques/fish';
 import { findNRooksHint } from './techniques/nRooks';
 import { findEntanglementHint } from './techniques/entanglement';
-import { findPatternMatchingHint } from './techniques/patternMatching';
+import { findEntanglementPatternHint } from './techniques/entanglementPatterns';
 import { findSchemaBasedHint } from './techniques/schemaBased';
 
 export interface Technique {
@@ -165,9 +165,9 @@ export const techniquesInOrder: Technique[] = [
     findHint: findSchemaBasedHint,
   },
   {
-    id: 'pattern-matching',
-    name: 'Pattern Matching',
-    findHint: findPatternMatchingHint,
+    id: 'entanglement-patterns',
+    name: 'Entanglement Patterns',
+    findHint: findEntanglementPatternHint,
   },
   {
     id: 'fish',

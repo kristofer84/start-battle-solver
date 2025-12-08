@@ -91,11 +91,25 @@ describe('schema-based technique', () => {
     } as any);
 
     const hint = findSchemaBasedHint(state);
-    expect(hint?.kind).toBe('place-star');
-    expect(hint?.resultCells).toEqual([{ row: 0, col: 6 }]);
+    expect(hint?.kind).toBe('place-star'); // Kind is 'place-star' when stars are present
+    // Both stars and crosses should be in resultCells
+    expect(hint?.resultCells).toContainEqual({ row: 0, col: 6 }); // star
+    expect(hint?.resultCells).toContainEqual({ row: 0, col: 5 }); // cross
+    expect(hint?.resultCells.length).toBe(2);
+    expect(hint?.schemaCellTypes).toBeDefined();
+    expect(hint?.schemaCellTypes?.get('0,6')).toBe('star');
+    expect(hint?.schemaCellTypes?.get('0,5')).toBe('cross');
 
     for (const cell of hint?.resultCells ?? []) {
-      state.cells[cell.row][cell.col] = hint!.kind === 'place-star' ? 'star' : 'cross';
+      // Use schemaCellTypes when available
+      let value: 'star' | 'cross';
+      if (hint!.schemaCellTypes) {
+        const cellType = hint!.schemaCellTypes.get(`${cell.row},${cell.col}`);
+        value = cellType === 'star' ? 'star' : 'cross';
+      } else {
+        value = hint!.kind === 'place-star' ? 'star' : 'cross';
+      }
+      state.cells[cell.row][cell.col] = value;
     }
 
     const errors = validateState(state);

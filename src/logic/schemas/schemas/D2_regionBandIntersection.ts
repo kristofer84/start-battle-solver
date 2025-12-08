@@ -62,12 +62,29 @@ export const D2Schema: Schema = {
       const bands = enumerateBands(state);
 
       for (const band of bands) {
-        const X = getCellsOfRegionInBand(region, band, state);
-        const candidates = X.filter(c => isStarCandidate(state, c));
+        // Get all region cells in band (including stars)
+        const allCellsInBand = band.type === 'rowBand'
+          ? region.cells.filter(cellId => {
+              const row = Math.floor(cellId / state.size);
+              return band.rows.includes(row);
+            })
+          : region.cells.filter(cellId => {
+              const col = cellId % state.size;
+              return band.cols.includes(col);
+            });
+        
+        // Get unknown cells (candidates) in band
+        const candidates = allCellsInBand.filter(c => state.cellStates[c] === 0);
+        // Count stars already placed in band
+        const starsInBand = allCellsInBand.filter(c => state.cellStates[c] === 1).length;
+        
         const q = getRegionBandQuota(region, band, state);
+        // Remaining stars needed = total quota - already placed
+        const remainingStarsNeeded = q - starsInBand;
 
-        // Case 1: Exact match - candidate count equals quota
-        if (candidates.length === q && q > 0) {
+        // Case 1: Exact match - candidate count equals remaining stars needed
+        // All remaining candidates must be stars
+        if (candidates.length === remainingStarsNeeded && remainingStarsNeeded > 0) {
           const deductions = candidates.map(c => ({ cell: c, type: 'forceStar' as const }));
 
           applications.push({

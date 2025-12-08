@@ -22,7 +22,14 @@ function applyHint(state: PuzzleState) {
   if (!hint) return false;
   
   for (const cell of hint.resultCells) {
-    const value = hint.kind === 'place-star' ? 'star' : 'cross';
+    // For schema-based hints with mixed types, use schemaCellTypes
+    let value: 'star' | 'cross';
+    if (hint.schemaCellTypes) {
+      const cellType = hint.schemaCellTypes.get(`${cell.row},${cell.col}`);
+      value = cellType === 'star' ? 'star' : 'cross';
+    } else {
+      value = hint.kind === 'place-star' ? 'star' : 'cross';
+    }
     state.cells[cell.row][cell.col] = value;
   }
   
