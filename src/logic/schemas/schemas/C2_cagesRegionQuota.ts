@@ -13,12 +13,12 @@ import type { RowBand, ColumnBand, Block2x2 } from '../model/types';
 import { enumerateBands } from '../helpers/bandHelpers';
 import {
   computeRemainingStarsInBand,
-  getValidBlocksInBand,
   getRegionsIntersectingBand,
   getCellsOfRegionInBand,
   getAllCellsOfRegionInBand,
   getRegionBandQuota,
 } from '../helpers/bandHelpers';
+import { getNonOverlappingBlocksInBand } from '../helpers/blockHelpers';
 
 /**
  * C2 Schema implementation
@@ -34,12 +34,22 @@ export const C2Schema: Schema = {
     // Enumerate all bands
     const bands = enumerateBands(state);
 
+    const debugC2 = process.env.DEBUG_C2 === 'true' || false;
+    if (debugC2) {
+      console.log(`[C2 DEBUG] C2 schema apply called, checking ${bands.length} bands`);
+    }
+    
     for (const band of bands) {
-      const validBlocks = getValidBlocksInBand(band, state);
       const remaining = computeRemainingStarsInBand(band, state);
-
-      // Require C1 condition: validBlocks.length === remaining
-      if (validBlocks.length !== remaining) continue;
+      
+      // Get a set of exactly 'remaining' non-overlapping blocks (C1 condition)
+      const nonOverlappingBlocks = getNonOverlappingBlocksInBand(band, state, remaining);
+      if (debugC2 && band.type === 'rowBand' && band.rows.length === 2 && band.rows[0] === 3 && band.rows[1] === 4) {
+        console.log(`[C2 DEBUG] Band rows ${band.rows.join(',')}: remaining=${remaining}, nonOverlappingBlocks=${nonOverlappingBlocks.length}`);
+        console.log(`[C2 DEBUG]   Block IDs: ${nonOverlappingBlocks.map(b => b.id).join(', ')}`);
+        console.log(`[C2 DEBUG]   C1 condition: ${nonOverlappingBlocks.length} === ${remaining}? ${nonOverlappingBlocks.length === remaining}`);
+      }
+      if (nonOverlappingBlocks.length !== remaining) continue;
 
       // Get regions intersecting this band
       const regions = getRegionsIntersectingBand(state, band);
@@ -53,15 +63,25 @@ export const C2Schema: Schema = {
         // Get candidate cells only for deductions
         const candidateCellsInBand = getCellsOfRegionInBand(region, band, state);
 
-        // Find blocks fully covered by this region
+        // Find blocks fully covered by this region (from the non-overlapping set)
         // A block is fully covered if all 4 cells are in the region (regardless of their state)
         const allRegionCellsSet = new Set(allRegionCellsInBand);
-        const fullBlocksForD = validBlocks.filter(block => {
+        const fullBlocksForD = nonOverlappingBlocks.filter(block => {
           // All 4 cells of block must be in region's band cells
           return block.cells.every(cell => allRegionCellsSet.has(cell));
         });
 
         const c = fullBlocksForD.length;
+        
+        if (debugC2 && band.type === 'rowBand' && band.rows.length === 2 && band.rows[0] === 3 && band.rows[1] === 4) {
+          console.log(`[C2 DEBUG] Checking region ${region.id}, band rows ${band.rows.join(',')}`);
+          console.log(`[C2 DEBUG]   quotaDB=${quotaDB}, fullBlocksForD.length=${c}`);
+          console.log(`[C2 DEBUG]   candidateCellsInBand.length=${candidateCellsInBand.length}`);
+          console.log(`[C2 DEBUG]   Condition: c === quotaDB (${c} === ${quotaDB})? ${c === quotaDB}`);
+          if (region.id === 4) {
+            console.log(`[C2 DEBUG]   Region 4: fullBlocksForD IDs: ${fullBlocksForD.map(b => b.id).join(', ')}`);
+          }
+        }
 
         // If number of fully-covered blocks equals region's band quota
         if (c === quotaDB) {
@@ -78,6 +98,17 @@ export const C2Schema: Schema = {
               cell,
               type: 'forceEmpty' as const,
             }));
+
+          if (debugC2 && band.type === 'rowBand' && band.rows.length === 2 && band.rows[0] === 3 && region.id === 4) {
+            console.log(`[C2 DEBUG] cellsInFullBlocks: ${Array.from(cellsInFullBlocks).join(', ')}`);
+            console.log(`[C2 DEBUG] candidateCellsInBand: ${candidateCellsInBand.join(', ')}`);
+            console.log(`[C2 DEBUG] deductions.length=${deductions.length}`);
+            if (deductions.length === 0) {
+              console.log(`[C2 DEBUG] SKIPPED: No deductions to make`);
+            } else {
+              console.log(`[C2 DEBUG] SUCCESS: Found ${deductions.length} deductions`);
+            }
+          }
 
           if (deductions.length === 0) continue;
 
@@ -116,7 +147,9 @@ export const C2Schema: Schema = {
             params: {
               bandKind: band.type,
               regionId: region.id,
-              blocks: validBlocks.map(b => b.id),
+              rows: band.type === 'rowBand' ? band.rows : undefined,
+              cols: band.type === 'colBand' ? band.cols : undefined,
+              blocks: nonOverlappingBlocks.map(b => b.id),
               fullBlocksForRegion: fullBlocksForD.map(b => b.id),
               quotaDB,
             },

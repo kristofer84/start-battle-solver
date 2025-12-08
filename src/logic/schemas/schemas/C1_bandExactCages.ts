@@ -10,7 +10,8 @@
 import type { Schema, SchemaContext, SchemaApplication, ExplanationInstance } from '../types';
 import type { RowBand, ColumnBand } from '../model/types';
 import { enumerateBands } from '../helpers/bandHelpers';
-import { computeRemainingStarsInBand, getValidBlocksInBand } from '../helpers/bandHelpers';
+import { computeRemainingStarsInBand } from '../helpers/bandHelpers';
+import { getNonOverlappingBlocksInBand } from '../helpers/blockHelpers';
 
 /**
  * C1 Schema implementation
@@ -30,8 +31,10 @@ export const C1Schema: Schema = {
       const remaining = computeRemainingStarsInBand(band, state);
       if (remaining <= 0) continue;
 
-      const validBlocks = getValidBlocksInBand(band, state);
-      if (validBlocks.length !== remaining) continue;
+      // Get a set of exactly 'remaining' non-overlapping blocks (if possible)
+      // C1 condition: we must be able to place remaining stars in non-overlapping blocks
+      const nonOverlappingBlocks = getNonOverlappingBlocksInBand(band, state, remaining);
+      if (nonOverlappingBlocks.length !== remaining) continue;
 
       // C1 condition met: exactly as many blocks as remaining stars
       // Each block must contain exactly one star
@@ -52,8 +55,8 @@ export const C1Schema: Schema = {
           {
             kind: 'identifyCandidateBlocks',
             entities: {
-              blocks: validBlocks.map(b => ({ kind: 'block2x2', blockId: b.id })),
-              blockCount: validBlocks.length,
+              blocks: nonOverlappingBlocks.map(b => ({ kind: 'block2x2', blockId: b.id })),
+              blockCount: nonOverlappingBlocks.length,
             },
           },
           {
@@ -72,7 +75,7 @@ export const C1Schema: Schema = {
           rows: band.type === 'rowBand' ? band.rows : undefined,
           cols: band.type === 'colBand' ? band.cols : undefined,
           remainingStars: remaining,
-          blocks: validBlocks.map(b => b.id),
+          blocks: nonOverlappingBlocks.map(b => b.id),
         },
         deductions: [], // C1 alone does not force specific cells
         explanation,

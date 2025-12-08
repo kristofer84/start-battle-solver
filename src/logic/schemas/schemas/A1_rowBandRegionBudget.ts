@@ -14,12 +14,13 @@ import type { RowBand, Region } from '../model/types';
 import { enumerateRowBands } from '../helpers/bandHelpers';
 import {
   getRegionsIntersectingRows,
-  regionFullyInsideRows,
   computeRemainingStarsInBand,
   getCandidatesInRegionAndRows,
   getRegionBandQuota,
-  allHaveKnownBandQuota,
+  getAllCellsOfRegionInBand,
+  getStarCountInRegion,
 } from '../helpers/bandHelpers';
+import { regionFullyInsideRows } from '../helpers/groupHelpers';
 import { getStarCountInCells } from '../helpers/cellHelpers';
 import { CellState } from '../model/types';
 
@@ -109,20 +110,31 @@ export const A1Schema: Schema = {
       for (const target of partial) {
         const otherPartial = partial.filter(r => r !== target);
 
-        // Check if all other partial regions have known band quotas
-        if (!allHaveKnownBandQuota(otherPartial, band, state)) {
-          // Skip if we can't compute quotas for all other partial regions
-          continue;
-        }
-
         // Compute stars forced in band
         const starsForcedFullInside = fullInside.reduce(
           (sum, r) => sum + r.starsRequired,
           0
         );
 
+        // Compute stars forced by other partial regions
+        // Use getRegionBandQuota which now includes A1 logic, but also use conservative estimates
         const starsForcedOtherPartial = otherPartial.reduce((sum, r) => {
           const quota = getRegionBandQuota(r, band, state);
+          // If quota is 0, try conservative estimate: current stars + remaining if all candidates in band
+          if (quota === 0) {
+            const allCells = getAllCellsOfRegionInBand(r, band, state);
+            const stars = allCells.filter(c => state.cellStates[c] === 1).length;
+            const remainingStars = r.starsRequired - getStarCountInRegion(r, state);
+            const candidatesInBand = allCells.filter(c => state.cellStates[c] === 0).length;
+            const allCandidates = r.cells.filter(c => state.cellStates[c] === 0).length;
+            
+            if (candidatesInBand === allCandidates && remainingStars > 0) {
+              // All candidates in band, so must place all remaining stars here
+              return sum + stars + remainingStars;
+            }
+            // Otherwise use current stars (conservative)
+            return sum + stars;
+          }
           return sum + quota;
         }, 0);
 
