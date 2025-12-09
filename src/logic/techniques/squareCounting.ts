@@ -11,6 +11,8 @@ import {
   formatRow,
   formatCol,
 } from '../helpers';
+import { canPlaceAllStars } from './undercounting';
+import { canPlaceAllStarsSimultaneously } from '../constraints/placement';
 
 let hintCounter = 0;
 
@@ -34,6 +36,7 @@ function blocksOverlap(block1: Coords[], block2: Coords[]): boolean {
  */
 export function findSquareCountingHint(state: PuzzleState): Hint | null {
   const { size, starsPerUnit } = state.def;
+  let bestHint: { hint: Hint; score: number } | null = null;
 
   // Check consecutive pairs of rows
   for (let startRow = 0; startRow <= size - 2; startRow += 1) {
@@ -63,8 +66,15 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
     // 1. It's fully contained in these rows (top-left at startRow)
     // 2. It doesn't already have a star
     // 3. It has at least one empty cell
+    // 4. At least one empty cell can legally contain a star (not adjacent to existing stars)
     const allValidBlocks: Coords[][] = [];
-    
+
+    function placeableCells(block: Coords[]): Coords[] {
+      return emptyCells(state, block).filter(
+        cell => canPlaceAllStarsSimultaneously(state, [cell], starsPerUnit) !== null
+      );
+    }
+
     // Check blocks starting at startRow (spanning rows startRow and startRow+1)
     for (let c = 0; c < size - 1; c += 1) {
       const block: Coords[] = [
@@ -78,13 +88,12 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
       const hasStar = block.some(cell => getCell(state, cell) === 'star');
       if (hasStar) continue;
       
-      // Check if block has at least one empty cell
-      const hasEmpty = block.some(cell => getCell(state, cell) === 'empty');
-      if (!hasEmpty) continue;
-      
+      // Check if block has at least one empty cell that can legally take a star
+      const empties = placeableCells(block);
+      if (empties.length === 0) continue;
+
       allValidBlocks.push(block);
       if (isDebugCase) {
-        const empties = emptyCells(state, block);
         console.log(`[SQUARE COUNTING] Valid block at (${startRow},${c}): ${empties.length} empty cells: [${empties.map(e => `(${e.row},${e.col})`).join(', ')}]`);
       }
     }
@@ -125,6 +134,33 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
     }
     
     const allNonOverlappingSets = findAllNonOverlappingSets(allValidBlocks, remainingStars);
+
+    function hasValidPlacement(blocks: Coords[][]): boolean {
+      const candidates = blocks.map(placeableCells);
+      if (candidates.some(list => list.length === 0)) {
+        return false;
+      }
+
+      function search(index: number, chosen: Coords[]): boolean {
+        if (index === candidates.length) {
+          return true;
+        }
+
+        for (const cell of candidates[index]) {
+          const nextChosen = [...chosen, cell];
+          if (canPlaceAllStarsSimultaneously(state, nextChosen, starsPerUnit) !== null &&
+              search(index + 1, nextChosen)) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+
+      return search(0, []);
+    }
+
+    const feasibleSets = allNonOverlappingSets.filter(hasValidPlacement);
     
     if (isDebugCase) {
       console.log(`[SQUARE COUNTING] Rows ${startRow},${startRow+1}: Found ${allValidBlocks.length} total valid blocks, ${allNonOverlappingSets.length} set(s) of ${remainingStars} non-overlapping blocks`);
@@ -136,11 +172,13 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
       }
     }
     
-    // The technique only applies when there is exactly ONE set of non-overlapping blocks
-    // If there are multiple sets, we can't determine which specific blocks must contain stars
-    if (allNonOverlappingSets.length !== 1) continue;
-    
-    const validBlocks = allNonOverlappingSets[0];
+    if (feasibleSets.length === 0) continue;
+
+    // If multiple feasible sets remain, we can still act on cells that are forced in every set
+    const candidateSets = feasibleSets.length === 1 ? feasibleSets : feasibleSets.filter(set => set.length === remainingStars);
+    if (candidateSets.length === 0) continue;
+
+    const validBlocks = candidateSets[0];
     if (validBlocks.length !== remainingStars) continue;
       
     if (isDebugCase) {
@@ -155,8 +193,30 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
     
     // Find blocks with only one empty cell - that cell must be a star
     const forcedStars: Coords[] = [];
-    for (const block of validBlocks) {
-        const empties = emptyCells(state, block);
+    const forcedAcrossSets: Coords[] | null = candidateSets.length === 1 ? null : (() => {
+      let intersection: Coords[] | null = null;
+
+      for (const set of candidateSets) {
+        const forcedInSet = set.flatMap(block => {
+          const empties = placeableCells(block);
+          return empties.length === 1 ? empties : [];
+        });
+
+        if (intersection === null) {
+          intersection = forcedInSet;
+        } else {
+          const forcedKeys = new Set(forcedInSet.map(c => `${c.row},${c.col}`));
+          intersection = intersection.filter(c => forcedKeys.has(`${c.row},${c.col}`));
+        }
+      }
+
+      return intersection && intersection.length > 0 ? intersection : null;
+    })();
+
+    const targetBlocks = candidateSets[0];
+
+    for (const block of targetBlocks) {
+        const empties = placeableCells(block);
         if (empties.length === 1) {
           const forcedStar = empties[0];
           
@@ -197,20 +257,29 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
     }
     
     // If we can place any stars, return them with all blocks highlighted
-    if (forcedStars.length > 0) {
-      const explanation = `${formatUnitList(rows, formatRow)} need ${remainingStars} more star(s), and there are exactly ${validBlocks.length} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star. ${forcedStars.length === 1 ? 'This block has only one empty cell, so it must be a star.' : `${forcedStars.length} of these blocks have only one empty cell each, so those cells must be stars.`}`;
-      
-      return {
+    const sharedForced = forcedAcrossSets ?? forcedStars;
+
+    if (sharedForced.length > 0) {
+      const explanation = candidateSets.length === 1
+        ? `${formatUnitList(rows, formatRow)} need ${remainingStars} more star(s), and there are exactly ${validBlocks.length} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star. ${sharedForced.length === 1 ? 'This block has only one empty cell, so it must be a star.' : `${sharedForced.length} of these blocks have only one empty cell each, so those cells must be stars.`}`
+        : `${formatUnitList(rows, formatRow)} need ${remainingStars} more star(s). Every feasible arrangement of ${remainingStars} non-overlapping 2×2 block(s) forces star(s) at ${sharedForced.map(c => `(${c.row},${c.col})`).join(', ')}.`;
+
+      const candidateHint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: 'square-counting',
-        resultCells: forcedStars,
+        resultCells: sharedForced,
         explanation,
         highlights: {
           rows,
           cells: allBlockCells,
         },
       };
+
+      const score = sharedForced.length * 100 + remainingStars;
+      if (!bestHint || score > bestHint.score) {
+        bestHint = { hint: candidateHint, score };
+      }
     }
   }
   
@@ -247,9 +316,9 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
       const hasStar = block.some(cell => getCell(state, cell) === 'star');
       if (hasStar) continue;
       
-      // Check if block has at least one empty cell
-      const hasEmpty = block.some(cell => getCell(state, cell) === 'empty');
-      if (!hasEmpty) continue;
+      // Check if block has at least one empty cell that can legally take a star
+      const empties = emptyCells(state, block).filter(cell => canPlaceAllStars(state, [cell]));
+      if (empties.length === 0) continue;
       
       allValidBlocks.push(block);
     }
@@ -303,7 +372,7 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
     // Find blocks with only one empty cell - that cell must be a star
     const forcedStars: Coords[] = [];
     for (const block of validBlocks) {
-      const empties = emptyCells(state, block);
+      const empties = emptyCells(state, block).filter(cell => canPlaceAllStars(state, [cell]));
       if (empties.length === 1) {
         const forcedStar = empties[0];
         
@@ -346,8 +415,8 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
     // If we can place any stars, return them with all blocks highlighted
     if (forcedStars.length > 0) {
       const explanation = `${formatUnitList(cols, formatCol)} need ${remainingStars} more star(s), and there are exactly ${validBlocks.length} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star. ${forcedStars.length === 1 ? 'This block has only one empty cell, so it must be a star.' : `${forcedStars.length} of these blocks have only one empty cell each, so those cells must be stars.`}`;
-      
-      return {
+
+      const candidateHint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: 'square-counting',
@@ -358,10 +427,15 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
           cells: allBlockCells,
         },
       };
+
+      const score = forcedStars.length * 100 + remainingStars;
+      if (!bestHint || score > bestHint.score) {
+        bestHint = { hint: candidateHint, score };
+      }
     }
   }
 
-  return null;
+  return bestHint?.hint ?? null;
 }
 
 function formatUnitList(indices: number[], formatter: (n: number) => string): string {
