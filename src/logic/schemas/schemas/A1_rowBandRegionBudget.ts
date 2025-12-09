@@ -19,6 +19,7 @@ import {
   getRegionBandQuota,
   getAllCellsOfRegionInBand,
   getStarCountInRegion,
+  getCellsOfRegionInBand,
 } from '../helpers/bandHelpers';
 import { regionFullyInsideRows } from '../helpers/groupHelpers';
 import { getStarCountInCells } from '../helpers/cellHelpers';
@@ -117,26 +118,45 @@ export const A1Schema: Schema = {
         );
 
         // Compute stars forced by other partial regions
-        // Use getRegionBandQuota which now includes A1 logic, but also use conservative estimates
-        const starsForcedOtherPartial = otherPartial.reduce((sum, r) => {
+        // According to spec, we can only use KNOWN quotas (not conservative estimates)
+        // A quota is "known" if:
+        // 1. Region is fully inside band (quota = starsRequired)
+        // 2. All remaining candidates are in band (quota = starsInBand + remainingStars)
+        // 3. Region has no remaining stars (quota = starsInBand)
+        // 4. Quota was deduced (quota > current stars in band)
+        let starsForcedOtherPartial = 0;
+        let allOtherPartialHaveKnownQuotas = true;
+        
+        for (const r of otherPartial) {
           const quota = getRegionBandQuota(r, band, state);
-          // If quota is 0, try conservative estimate: current stars + remaining if all candidates in band
-          if (quota === 0) {
-            const allCells = getAllCellsOfRegionInBand(r, band, state);
-            const stars = allCells.filter(c => state.cellStates[c] === 1).length;
-            const remainingStars = r.starsRequired - getStarCountInRegion(r, state);
-            const candidatesInBand = allCells.filter(c => state.cellStates[c] === 0).length;
-            const allCandidates = r.cells.filter(c => state.cellStates[c] === 0).length;
-            
-            if (candidatesInBand === allCandidates && remainingStars > 0) {
-              // All candidates in band, so must place all remaining stars here
-              return sum + stars + remainingStars;
-            }
-            // Otherwise use current stars (conservative)
-            return sum + stars;
+          const allCells = getAllCellsOfRegionInBand(r, band, state);
+          const starsInBand = allCells.filter(c => state.cellStates[c] === 1).length;
+          const remainingStars = r.starsRequired - getStarCountInRegion(r, state);
+          const candidatesInBand = getCellsOfRegionInBand(r, band, state)
+            .filter(c => state.cellStates[c] === 0).length;
+          const allCandidates = r.cells.filter(c => state.cellStates[c] === 0).length;
+          
+          // Check if quota is "known" (not just conservative estimate)
+          const isKnown = 
+            remainingStars === 0 || // No remaining stars, quota is just current stars
+            candidatesInBand === allCandidates || // All candidates in band
+            quota === r.starsRequired || // Fully inside band
+            quota > starsInBand; // Quota was deduced (greater than current stars)
+          
+          if (!isKnown) {
+            // This region doesn't have a known quota, so we can't make deductions
+            allOtherPartialHaveKnownQuotas = false;
+            break;
           }
-          return sum + quota;
-        }, 0);
+          
+          // Use the quota (which is known)
+          starsForcedOtherPartial += quota;
+        }
+        
+        // Only proceed if all other partial regions have known quotas
+        if (!allOtherPartialHaveKnownQuotas) {
+          continue;
+        }
 
         const starsForcedInR = starsForcedFullInside + starsForcedOtherPartial;
         const starsRemainingInR = rowsStarsNeeded - starsForcedInR;
