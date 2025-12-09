@@ -228,8 +228,22 @@ function onPatternClick(patternId: string) {
   showEntanglementViewer.value = true;
 }
 
-function requestHint() {
-  const hint = findNextHint(store.puzzle);
+async function requestHint() {
+  // Set thinking state immediately so UI can update
+  store.isThinking = true;
+  store.currentTechnique = null;
+  
+  // Allow Vue to update the DOM
+  await nextTick();
+  // Wait for browser to paint the spinner
+  await new Promise(resolve => {
+    requestAnimationFrame(() => {
+      setTimeout(resolve, 100); // Give enough time for spinner to be visible
+    });
+  });
+  
+  // Now call findNextHint (it will manage isThinking from here)
+  const hint = await findNextHint(store.puzzle);
   store.currentHint = hint;
   if (!hint) {
     store.issues = ['No further logical hint found with current techniques.'];
@@ -273,7 +287,7 @@ async function trySolve() {
     }
 
     // Find next hint
-    const hint = findNextHint(store.puzzle);
+    const hint = await findNextHint(store.puzzle);
 
     if (!hint) {
       const endTime = performance.now();
@@ -585,8 +599,11 @@ watch(
         @change-theme="onChangeTheme" />
 
       <div v-if="store.isThinking" class="thinking-indicator">
-        <span class="thinking-spinner">⏳</span>
-        <span>Solving... {{ store.currentTechnique ? `(${store.currentTechnique})` : '' }}</span>
+        <div class="thinking-spinner"></div>
+        <span>
+          <template v-if="store.currentTechnique">Testing {{ store.currentTechnique }}...</template>
+          <template v-else>Looking for hint...</template>
+        </span>
       </div>
 
       <div v-if="store.mode === 'editor'" class="editor-layout">

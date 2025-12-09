@@ -197,13 +197,16 @@ export const techniquesInOrder: Technique[] = [
   },
 ];
 
-export function findNextHint(state: PuzzleState): Hint | null {
+export async function findNextHint(state: PuzzleState): Promise<Hint | null> {
   const startTime = performance.now();
   const testedTechniques: Array<{ technique: string; timeMs: number }> = [];
 
   // Set thinking state
   store.isThinking = true;
   store.currentTechnique = null;
+
+  // Yield to allow UI to update
+  await new Promise(resolve => setTimeout(resolve, 0));
 
   try {
     for (const tech of techniquesInOrder) {
@@ -213,6 +216,15 @@ export function findNextHint(state: PuzzleState): Hint | null {
 
       const techStartTime = performance.now();
       store.currentTechnique = tech.name;
+
+      // Yield to allow Vue to update the UI with the current technique name
+      // Use requestAnimationFrame to ensure the browser paints before we start the technique
+      await new Promise(resolve => {
+        requestAnimationFrame(() => {
+          // Double RAF to ensure paint happens
+          requestAnimationFrame(resolve);
+        });
+      });
 
       // Log start of technique
       console.log(`[DEBUG] Starting ${tech.name}...`);
