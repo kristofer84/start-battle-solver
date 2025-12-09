@@ -247,16 +247,51 @@ export function findEntanglementResult(state: PuzzleState): TechniqueResult {
   const { size, starsPerUnit } = state.def;
   const deductions: Deduction[] = [];
 
+  // Emit deductions for constrained units that share cells
+  // When multiple units have limited placement options and share candidate cells,
+  // we can emit ExclusiveSetDeduction for the shared cells
+  
+  const constrainedUnits = findConstrainedUnits(state);
+  
+  // Find pairs of constrained units that share cells
+  for (let i = 0; i < constrainedUnits.length; i += 1) {
+    for (let j = i + 1; j < constrainedUnits.length; j += 1) {
+      const unit1 = constrainedUnits[i];
+      const unit2 = constrainedUnits[j];
+      
+      const sharedCells = findSharedCells(unit1.possibleCells, unit2.possibleCells);
+      if (sharedCells.length === 0) continue;
+      
+      // If both units need stars and share candidate cells, emit ExclusiveSetDeduction
+      // The total stars needed across both units must be placed in the shared cells
+      const totalStarsNeeded = unit1.starsNeeded + unit2.starsNeeded;
+      
+      // Filter to empty shared cells
+      const emptySharedCells = sharedCells.filter(c => getCell(state, c) === 'empty');
+      
+      if (emptySharedCells.length > 0 && totalStarsNeeded <= emptySharedCells.length) {
+        deductions.push({
+          kind: 'exclusive-set',
+          technique: 'entanglement',
+          cells: emptySharedCells,
+          starsRequired: totalStarsNeeded,
+          explanation: `${formatUnit(unit1)} and ${formatUnit(unit2)} share ${emptySharedCells.length} candidate cell(s) and together need ${totalStarsNeeded} star(s).`,
+        });
+      }
+    }
+  }
+
   // Try to find a clear hint first
   const hint = findEntanglementHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // Entanglement finds chains of mutual exclusivity between cells.
-  // We could emit ExclusiveSetDeduction for constrained units that share cells,
-  // but the technique is complex and primarily produces hints directly.
-  // More sophisticated deduction extraction could be added later.
+  // Return deductions if any were found
+  if (deductions.length > 0) {
+    return { type: 'deductions', deductions };
+  }
 
   return { type: 'none' };
 }

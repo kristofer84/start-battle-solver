@@ -188,10 +188,16 @@ function findPatternBasedHint(
  * Find result with deductions support
  */
 export function findEntanglementPatternResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findEntanglementPatternHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // Entanglement patterns use pre-computed patterns to find forced cells.
+    // We could emit CellDeduction for forced cells from patterns,
+    // but the technique uses pattern matching and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // Entanglement patterns use pre-computed patterns to find forced cells.

@@ -387,10 +387,14 @@ export function findFinnedCountsHint(state: PuzzleState): Hint | null {
  * When re-enabled, it should emit ExclusiveSetDeduction for fin patterns.
  */
 export function findFinnedCountsResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findFinnedCountsHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // Currently disabled - no deductions emitted
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // Currently disabled - no deductions emitted

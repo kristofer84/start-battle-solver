@@ -249,15 +249,70 @@ export function findForcedPlacementHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findForcedPlacementResult(state: PuzzleState): TechniqueResult {
+  const { size, starsPerUnit } = state.def;
+  const deductions: Deduction[] = [];
+
+  // Emit deductions for regions with constrained candidate cells
+  // Even if not all placements include the same cell, we can narrow down candidates
+  for (let regionId = 1; regionId <= 10; regionId += 1) {
+    const region = regionCells(state, regionId);
+    if (!region.length) continue;
+    
+    const empties = emptyCells(state, region);
+    if (empties.length === 0) continue;
+    
+    const starCount = countStars(state, region);
+    const remaining = starsPerUnit - starCount;
+    if (remaining <= 0) continue;
+    
+    // Skip if region has too many empty cells (would be too expensive)
+    if (empties.length > 20) {
+      continue;
+    }
+    
+    // Filter to candidate cells
+    const candidateCells = empties.filter(cell => {
+      const nbs = neighbors8(cell, size);
+      if (nbs.some(nb => getCell(state, nb) === 'star')) {
+        return false;
+      }
+      const row = rowCells(state, cell.row);
+      const col = colCells(state, cell.col);
+      const cellRegionId = state.def.regions[cell.row][cell.col];
+      const region = regionCells(state, cellRegionId);
+      if (countStars(state, row) >= starsPerUnit) return false;
+      if (countStars(state, col) >= starsPerUnit) return false;
+      if (countStars(state, region) >= starsPerUnit) return false;
+      return true;
+    });
+    
+    if (candidateCells.length < remaining) continue;
+    
+    // If candidate cells are narrowed down but not all forced, emit AreaDeduction
+    if (candidateCells.length < empties.length && candidateCells.length >= remaining) {
+      deductions.push({
+        kind: 'area',
+        technique: 'forced-placement',
+        areaType: 'region',
+        areaId: regionId,
+        candidateCells,
+        minStars: remaining, // At least this many stars must be in these candidates
+        explanation: `Region ${formatRegion(regionId)} needs ${remaining} star(s), and only ${candidateCells.length} candidate cell(s) remain after filtering invalid placements.`,
+      });
+    }
+  }
+
   // Try to find a clear hint first
   const hint = findForcedPlacementHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // Forced placement finds regions where all valid placements include specific cells.
-  // We could emit AreaDeduction for regions with constrained placements,
-  // but the technique is complex and primarily produces hints directly.
+  // Return deductions if any were found
+  if (deductions.length > 0) {
+    return { type: 'deductions', deductions };
+  }
 
   return { type: 'none' };
 }

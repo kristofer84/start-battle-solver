@@ -411,17 +411,83 @@ function analyzeCompositeShape(
  * Find result with deductions support
  */
 export function findCompositeShapesResult(state: PuzzleState): TechniqueResult {
+  const { size, starsPerUnit } = state.def;
+  const deductions: Deduction[] = [];
+
+  // Emit deductions for partial patterns: when minStarsNeeded > shapeStars but < empties.length + shapeStars
+  // This means at least N stars must be in this shape, but not all cells are forced
+  
+  // Check 3-region unions intersecting with rows
+  for (let reg1 = 1; reg1 <= size; reg1 += 1) {
+    for (let reg2 = reg1 + 1; reg2 <= size; reg2 += 1) {
+      for (let reg3 = reg2 + 1; reg3 <= size; reg3 += 1) {
+        const region1 = regionCells(state, reg1);
+        const region2 = regionCells(state, reg2);
+        const region3 = regionCells(state, reg3);
+        const unionRegions = union(union(region1, region2), region3);
+        
+        const reg1Stars = countStars(state, region1);
+        const reg2Stars = countStars(state, region2);
+        const reg3Stars = countStars(state, region3);
+        const reg1Remaining = starsPerUnit - reg1Stars;
+        const reg2Remaining = starsPerUnit - reg2Stars;
+        const reg3Remaining = starsPerUnit - reg3Stars;
+        const totalRemaining = reg1Remaining + reg2Remaining + reg3Remaining;
+        
+        if (reg1Remaining <= 0 || reg2Remaining <= 0 || reg3Remaining <= 0) continue;
+        
+        // Try intersecting with rows
+        for (let r = 0; r < size; r += 1) {
+          const row = rowCells(state, r);
+          const rowStars = countStars(state, row);
+          const rowRemaining = starsPerUnit - rowStars;
+          if (rowRemaining <= 0) continue;
+          
+          const shape = intersection(row, unionRegions);
+          if (shape.length === 0) continue;
+          
+          const empties = emptyCells(state, shape);
+          if (empties.length === 0) continue;
+          
+          const shapeStars = countStars(state, shape);
+          const rowOutside = difference(row, shape);
+          const unionOutside = difference(unionRegions, shape);
+          const emptyCellsInRowOutside = emptyCells(state, rowOutside).length;
+          const emptyCellsInUnionOutside = emptyCells(state, unionOutside).length;
+          
+          const minStarsInShape = Math.max(
+            0,
+            rowRemaining - emptyCellsInRowOutside,
+            totalRemaining - emptyCellsInUnionOutside
+          );
+          
+          // If minStars > shapeStars but < empties.length + shapeStars, emit ExclusiveSetDeduction
+          if (minStarsInShape > shapeStars && minStarsInShape < empties.length + shapeStars) {
+            const starsNeeded = minStarsInShape - shapeStars;
+            deductions.push({
+              kind: 'exclusive-set',
+              technique: 'composite-shapes',
+              cells: empties,
+              starsRequired: starsNeeded,
+              explanation: `The intersection of ${formatRow(r)} and ${formatRegions([reg1, reg2, reg3])} must contain at least ${minStarsInShape} star(s) total. With ${shapeStars} already placed, at least ${starsNeeded} more must be placed in the ${empties.length} empty cell(s).`,
+            });
+          }
+        }
+      }
+    }
+  }
+
   // Try to find a clear hint first
   const hint = findCompositeShapesHint(state);
   if (hint) {
     // Return hint with deductions so main solver can combine information
-    // For now, composite shapes primarily produces hints directly
-    return { type: 'hint', hint };
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // For composite shapes, we could emit ExclusiveSetDeduction when we find
-  // R stars in R cells, but the technique is complex and primarily produces hints.
-  // More sophisticated deduction extraction could be added later.
+  // Return deductions if any were found
+  if (deductions.length > 0) {
+    return { type: 'deductions', deductions };
+  }
 
   return { type: 'none' };
 }

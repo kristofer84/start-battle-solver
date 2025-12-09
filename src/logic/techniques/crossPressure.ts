@@ -139,10 +139,16 @@ export function findCrossPressureHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findCrossPressureResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findCrossPressureHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // Cross pressure finds forced stars/crosses when rows/columns have specific patterns.
+    // We could emit AreaDeduction for rows/columns with forced patterns,
+    // but the technique is specific and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // Cross pressure finds forced stars/crosses when rows/columns have specific patterns.

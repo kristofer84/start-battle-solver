@@ -184,10 +184,16 @@ export function findPressuredExclusionHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findPressuredExclusionResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findPressuredExclusionHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // Pressured exclusion finds cells that would break units if they were stars.
+    // We could emit CellDeduction for excluded cells,
+    // but the technique uses expensive simulation and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // Pressured exclusion finds cells that would break units if they were stars.

@@ -1140,15 +1140,134 @@ export function findUndercountingHint(state: PuzzleState): Hint | null {
  * Deductions are emitted when partial patterns are detected.
  */
 export function findUndercountingResult(state: PuzzleState): TechniqueResult {
+  const { size, starsPerUnit } = state.def;
+  const deductions: Deduction[] = [];
+
+  // Precompute row, column, and region data (same as findUndercountingHint)
+  const rowData = Array.from({ length: size }, (_, r) => {
+    const cells = rowCells(state, r);
+    const stars = countStars(state, cells);
+    const empties = emptyCells(state, cells);
+    return { cells, stars, empties, remaining: starsPerUnit - stars };
+  });
+
+  const colData = Array.from({ length: size }, (_, c) => {
+    const cells = colCells(state, c);
+    const stars = countStars(state, cells);
+    const empties = emptyCells(state, cells);
+    return { cells, stars, empties, remaining: starsPerUnit - stars };
+  });
+
+  const regionData = Array.from({ length: size + 1 }, (_, id) => {
+    if (id === 0) return null; // 1-based regions
+    const cells = regionCells(state, id);
+    const stars = countStars(state, cells);
+    const empties = emptyCells(state, cells);
+    return { cells, stars, empties, remaining: starsPerUnit - stars };
+  });
+
+  // Emit deductions for partial patterns: when minStarsInIntersection > 0 but < empties.length
+  // This means at least N stars must be in this intersection, but not all cells are forced
+  
+  // Check row∩region intersections
+  for (let r = 0; r < size; r += 1) {
+    const row = rowData[r].cells;
+    const rowRemaining = rowData[r].remaining;
+    if (rowRemaining <= 0) continue;
+    
+    const rowNonCrosses = row.filter(c => getCell(state, c) !== 'cross');
+    
+    for (let regionId = 1; regionId <= size; regionId += 1) {
+      const region = regionData[regionId]!.cells;
+      const regionRemaining = regionData[regionId]!.remaining;
+      if (regionRemaining <= 0) continue;
+      
+      const regionNonCrosses = region.filter(c => getCell(state, c) !== 'cross');
+      const shape = intersection(rowNonCrosses, regionNonCrosses);
+      if (shape.length === 0) continue;
+      
+      const empties = emptyCells(state, shape);
+      if (empties.length === 0) continue;
+      
+      const rowOutsideIntersection = difference(rowNonCrosses, shape);
+      const regionOutsideIntersection = difference(regionNonCrosses, shape);
+      const emptyCellsInRowOutside = emptyCells(state, rowOutsideIntersection).length;
+      const emptyCellsInRegionOutside = emptyCells(state, regionOutsideIntersection).length;
+      
+      const minStarsInIntersection = Math.max(
+        0,
+        rowRemaining - emptyCellsInRowOutside,
+        regionRemaining - emptyCellsInRegionOutside
+      );
+      
+      // If minStars > 0 but < empties.length, emit ExclusiveSetDeduction
+      if (minStarsInIntersection > 0 && minStarsInIntersection < empties.length) {
+        deductions.push({
+          kind: 'exclusive-set',
+          technique: 'undercounting',
+          cells: empties,
+          starsRequired: minStarsInIntersection,
+          explanation: `The intersection of ${formatRow(r)} and region ${formatRegions([regionId])} must contain at least ${minStarsInIntersection} star(s) in its ${empties.length} empty cell(s).`,
+        });
+      }
+    }
+  }
+
+  // Check col∩region intersections
+  for (let c = 0; c < size; c += 1) {
+    const col = colData[c].cells;
+    const colRemaining = colData[c].remaining;
+    if (colRemaining <= 0) continue;
+    
+    const colNonCrosses = col.filter(cell => getCell(state, cell) !== 'cross');
+    
+    for (let regionId = 1; regionId <= size; regionId += 1) {
+      const region = regionData[regionId]!.cells;
+      const regionRemaining = regionData[regionId]!.remaining;
+      if (regionRemaining <= 0) continue;
+      
+      const regionNonCrosses = region.filter(c => getCell(state, c) !== 'cross');
+      const shape = intersection(colNonCrosses, regionNonCrosses);
+      if (shape.length === 0) continue;
+      
+      const empties = emptyCells(state, shape);
+      if (empties.length === 0) continue;
+      
+      const colOutsideIntersection = difference(colNonCrosses, shape);
+      const regionOutsideIntersection = difference(regionNonCrosses, shape);
+      const emptyCellsInColOutside = emptyCells(state, colOutsideIntersection).length;
+      const emptyCellsInRegionOutside = emptyCells(state, regionOutsideIntersection).length;
+      
+      const minStarsInIntersection = Math.max(
+        0,
+        colRemaining - emptyCellsInColOutside,
+        regionRemaining - emptyCellsInRegionOutside
+      );
+      
+      // If minStars > 0 but < empties.length, emit ExclusiveSetDeduction
+      if (minStarsInIntersection > 0 && minStarsInIntersection < empties.length) {
+        deductions.push({
+          kind: 'exclusive-set',
+          technique: 'undercounting',
+          cells: empties,
+          starsRequired: minStarsInIntersection,
+          explanation: `The intersection of ${formatCol(c)} and region ${formatRegions([regionId])} must contain at least ${minStarsInIntersection} star(s) in its ${empties.length} empty cell(s).`,
+        });
+      }
+    }
+  }
+
   // Try to find a clear hint first
   const hint = findUndercountingHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // For now, undercounting primarily produces hints.
-  // More complex deduction extraction could be added later if needed.
-  // The technique is already quite effective at finding hints directly.
+  // Return deductions if any were found
+  if (deductions.length > 0) {
+    return { type: 'deductions', deductions };
+  }
 
   return { type: 'none' };
 }

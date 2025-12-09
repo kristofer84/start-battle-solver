@@ -105,10 +105,16 @@ export function findByAThreadHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findByAThreadResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findByAThreadHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // By a thread uses uniqueness reasoning to find forced cells.
+    // We could emit CellDeduction for forced cells,
+    // but the technique uses expensive solution counting and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // By a thread uses uniqueness reasoning to find forced cells.

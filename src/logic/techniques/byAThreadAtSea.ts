@@ -94,10 +94,16 @@ export function findByAThreadAtSeaHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findByAThreadAtSeaResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findByAThreadAtSeaHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // By a thread at sea combines uniqueness and isolation reasoning.
+    // We could emit CellDeduction for forced cells,
+    // but the technique uses expensive solution counting and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // By a thread at sea combines uniqueness and isolation reasoning.

@@ -671,14 +671,123 @@ export function findOvercountingHint(state: PuzzleState): Hint | null {
  * Deductions are emitted when partial patterns are detected.
  */
 export function findOvercountingResult(state: PuzzleState): TechniqueResult {
+  const { size, starsPerUnit } = state.def;
+  const deductions: Deduction[] = [];
+
+  // Precompute data (similar to findOvercountingHint)
+  const allRegionIds = new Set<number>();
+  for (let r = 0; r < size; r += 1) {
+    for (let c = 0; c < size; c += 1) {
+      allRegionIds.add(state.def.regions[r][c]);
+    }
+  }
+  const regionCellsCache = new Map<number, Coords[]>();
+  for (const regionId of allRegionIds) {
+    regionCellsCache.set(regionId, regionCells(state, regionId));
+  }
+
+  // Emit deductions for partial patterns: when maxStars < empties.length + shapeStars
+  // This means at most N stars can be in this intersection, but not all cells are forced to be crosses
+  
+  // Check row∩region intersections
+  for (let r = 0; r < size; r += 1) {
+    const row = rowCells(state, r);
+    const rowStars = countStars(state, row);
+    const rowRemaining = starsPerUnit - rowStars;
+    if (rowRemaining <= 0) continue;
+    
+    const rowNonCrosses = row.filter(c => getCell(state, c) !== 'cross');
+    
+    for (let regionId = 1; regionId <= size; regionId += 1) {
+      const region = regionCellsCache.get(regionId);
+      if (!region) continue;
+      const regionStars = countStars(state, region);
+      const regionRemaining = starsPerUnit - regionStars;
+      if (regionRemaining <= 0) continue;
+      
+      const regionNonCrosses = region.filter(c => getCell(state, c) !== 'cross');
+      const shape = intersection(rowNonCrosses, regionNonCrosses);
+      if (shape.length === 0) continue;
+      
+      const empties = emptyCells(state, shape);
+      if (empties.length === 0) continue;
+      
+      const shapeStars = countStars(state, shape);
+      const existingStarCoords = shape.filter((c) => getCell(state, c) === 'star');
+      const maxStarsPossible = maxStarsWithTwoByTwo(state, shape, existingStarCoords);
+      const maxFromUnits = Math.min(rowRemaining + shapeStars, regionRemaining + shapeStars);
+      const maxStars = Math.min(maxStarsPossible, maxFromUnits);
+      
+      // If maxStars < shapeStars + empties.length, emit AreaDeduction with maxStars bound
+      if (maxStars < shapeStars + empties.length && maxStars > shapeStars) {
+        deductions.push({
+          kind: 'area',
+          technique: 'overcounting',
+          areaType: 'region',
+          areaId: regionId,
+          candidateCells: empties,
+          maxStars: maxStars - shapeStars, // Maximum additional stars in these cells
+          explanation: `The intersection of ${formatRow(r)} and region ${formatRegions([regionId])} can have at most ${maxStars} star(s) total. With ${shapeStars} already placed, at most ${maxStars - shapeStars} more can be placed in the ${empties.length} empty cell(s).`,
+        });
+      }
+    }
+  }
+
+  // Check col∩region intersections
+  for (let c = 0; c < size; c += 1) {
+    const col = colCells(state, c);
+    const colStars = countStars(state, col);
+    const colRemaining = starsPerUnit - colStars;
+    if (colRemaining <= 0) continue;
+    
+    const colNonCrosses = col.filter(cell => getCell(state, cell) !== 'cross');
+    
+    for (let regionId = 1; regionId <= size; regionId += 1) {
+      const region = regionCellsCache.get(regionId);
+      if (!region) continue;
+      const regionStars = countStars(state, region);
+      const regionRemaining = starsPerUnit - regionStars;
+      if (regionRemaining <= 0) continue;
+      
+      const regionNonCrosses = region.filter(c => getCell(state, c) !== 'cross');
+      const shape = intersection(colNonCrosses, regionNonCrosses);
+      if (shape.length === 0) continue;
+      
+      const empties = emptyCells(state, shape);
+      if (empties.length === 0) continue;
+      
+      const shapeStars = countStars(state, shape);
+      const existingStarCoords = shape.filter((c) => getCell(state, c) === 'star');
+      const maxStarsPossible = maxStarsWithTwoByTwo(state, shape, existingStarCoords);
+      const maxFromUnits = Math.min(colRemaining + shapeStars, regionRemaining + shapeStars);
+      const maxStars = Math.min(maxStarsPossible, maxFromUnits);
+      
+      // If maxStars < shapeStars + empties.length, emit AreaDeduction with maxStars bound
+      if (maxStars < shapeStars + empties.length && maxStars > shapeStars) {
+        deductions.push({
+          kind: 'area',
+          technique: 'overcounting',
+          areaType: 'region',
+          areaId: regionId,
+          candidateCells: empties,
+          maxStars: maxStars - shapeStars, // Maximum additional stars in these cells
+          explanation: `The intersection of ${formatCol(c)} and region ${formatRegions([regionId])} can have at most ${maxStars} star(s) total. With ${shapeStars} already placed, at most ${maxStars - shapeStars} more can be placed in the ${empties.length} empty cell(s).`,
+        });
+      }
+    }
+  }
+
   // Try to find a clear hint first
   const hint = findOvercountingHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // For now, overcounting primarily produces hints.
-  // More complex deduction extraction could be added later if needed.
+  // Return deductions if any were found
+  if (deductions.length > 0) {
+    return { type: 'deductions', deductions };
+  }
 
   return { type: 'none' };
 }

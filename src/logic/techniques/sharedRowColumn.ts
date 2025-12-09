@@ -369,10 +369,16 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findSharedRowColumnResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findSharedRowColumnHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // Shared row/column finds forced crosses when regions share rows/columns.
+    // We could emit CellDeduction for forced crosses,
+    // but the technique uses expensive placement search and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // Shared row/column finds forced crosses when regions share rows/columns.

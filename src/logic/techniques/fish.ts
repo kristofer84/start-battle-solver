@@ -51,10 +51,14 @@ export function findFishHint(state: PuzzleState): Hint | null {
  * Note: Fish is currently disabled due to logical flaws.
  */
 export function findFishResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findFishHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // Currently disabled - no deductions emitted
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // Currently disabled - no deductions emitted

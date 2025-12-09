@@ -65,10 +65,16 @@ export function findAtSeaHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findAtSeaResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findAtSeaHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // At sea finds isolated cells that must be stars.
+    // We could emit AreaDeduction for isolated units,
+    // but the technique is complex and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // At sea finds isolated cells that must be stars.

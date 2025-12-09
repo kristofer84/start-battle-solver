@@ -361,16 +361,138 @@ export function findSqueezeResult(state: PuzzleState): TechniqueResult {
   const { size, starsPerUnit } = state.def;
   const deductions: Deduction[] = [];
 
+  // Emit deductions for partial patterns: when starsForced > 0 but < validPlacements.length
+  // This means at least N stars must be in this intersection, but not all placements are forced
+  
+  // Check row∩region intersections
+  for (let r = 0; r < size; r += 1) {
+    const row = rowCells(state, r);
+    const rowStars = countStars(state, row);
+    const rowRemaining = starsPerUnit - rowStars;
+    if (rowRemaining <= 0) continue;
+
+    const rowEmptyCells = emptyCells(state, row);
+    const rowValidPlacements = rowEmptyCells.filter(cell => isValidStarPlacement(state, cell));
+
+    for (let regionId = 1; regionId <= size; regionId += 1) {
+      const region = regionCells(state, regionId);
+      const regionStars = countStars(state, region);
+      const regionRemaining = starsPerUnit - regionStars;
+      if (regionRemaining <= 0) continue;
+
+      const regionEmpties = emptyCells(state, region);
+      const regionValidPlacements = regionEmpties.filter(cell => isValidStarPlacement(state, cell));
+
+      const shape = intersection(row, region);
+      if (shape.length === 0) continue;
+
+      const shapeSet = new Set(shape.map(cellKey));
+      const rowValidOutside = rowValidPlacements.filter(cell => !shapeSet.has(cellKey(cell))).length;
+      const regionValidOutside = regionValidPlacements.filter(cell => !shapeSet.has(cellKey(cell))).length;
+
+      const rowNeeded = Math.max(0, rowRemaining - rowValidOutside);
+      const regionNeeded = Math.max(0, regionRemaining - regionValidOutside);
+      const starsForced = Math.max(rowNeeded, regionNeeded);
+
+      const empties = emptyCells(state, shape);
+      if (empties.length === 0) continue;
+
+      const validPlacements = empties.filter(cell => isValidStarPlacement(state, cell));
+      
+      // If starsForced > 0 but < validPlacements.length, emit AreaRelationDeduction
+      if (starsForced > 0 && starsForced < validPlacements.length) {
+        deductions.push({
+          kind: 'area-relation',
+          technique: 'squeeze',
+          areas: [
+            {
+              areaType: 'row',
+              areaId: r,
+              candidateCells: validPlacements,
+            },
+            {
+              areaType: 'region',
+              areaId: regionId,
+              candidateCells: validPlacements,
+            },
+          ],
+          totalStars: starsForced,
+          explanation: `The intersection of ${formatRow(r)} and region ${formatRegion(regionId)} must contain at least ${starsForced} star(s) due to spatial constraints squeezing valid placements.`,
+        });
+      }
+    }
+  }
+
+  // Check col∩region intersections
+  for (let c = 0; c < size; c += 1) {
+    const col = colCells(state, c);
+    const colStars = countStars(state, col);
+    const colRemaining = starsPerUnit - colStars;
+    if (colRemaining <= 0) continue;
+
+    const colEmptyCells = emptyCells(state, col);
+    const colValidPlacements = colEmptyCells.filter(cell => isValidStarPlacement(state, cell));
+
+    for (let regionId = 1; regionId <= size; regionId += 1) {
+      const region = regionCells(state, regionId);
+      const regionStars = countStars(state, region);
+      const regionRemaining = starsPerUnit - regionStars;
+      if (regionRemaining <= 0) continue;
+
+      const regionEmpties = emptyCells(state, region);
+      const regionValidPlacements = regionEmpties.filter(cell => isValidStarPlacement(state, cell));
+
+      const shape = intersection(col, region);
+      if (shape.length === 0) continue;
+
+      const shapeSet = new Set(shape.map(cellKey));
+      const colValidOutside = colValidPlacements.filter(cell => !shapeSet.has(cellKey(cell))).length;
+      const regionValidOutside = regionValidPlacements.filter(cell => !shapeSet.has(cellKey(cell))).length;
+
+      const colNeeded = Math.max(0, colRemaining - colValidOutside);
+      const regionNeeded = Math.max(0, regionRemaining - regionValidOutside);
+      const starsForced = Math.max(colNeeded, regionNeeded);
+
+      const empties = emptyCells(state, shape);
+      if (empties.length === 0) continue;
+
+      const validPlacements = empties.filter(cell => isValidStarPlacement(state, cell));
+      
+      // If starsForced > 0 but < validPlacements.length, emit AreaRelationDeduction
+      if (starsForced > 0 && starsForced < validPlacements.length) {
+        deductions.push({
+          kind: 'area-relation',
+          technique: 'squeeze',
+          areas: [
+            {
+              areaType: 'column',
+              areaId: c,
+              candidateCells: validPlacements,
+            },
+            {
+              areaType: 'region',
+              areaId: regionId,
+              candidateCells: validPlacements,
+            },
+          ],
+          totalStars: starsForced,
+          explanation: `The intersection of ${formatCol(c)} and region ${formatRegion(regionId)} must contain at least ${starsForced} star(s) due to spatial constraints squeezing valid placements.`,
+        });
+      }
+    }
+  }
+
   // Try to find a clear hint first
   const hint = findSqueezeHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // Squeeze finds intersections where stars are forced.
-  // We could emit AreaRelationDeduction for row+region intersections,
-  // but the technique is complex and primarily produces hints directly.
-  // More sophisticated deduction extraction could be added later.
+  // Return deductions if any were found
+  if (deductions.length > 0) {
+    return { type: 'deductions', deductions };
+  }
 
   return { type: 'none' };
 }

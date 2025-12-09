@@ -664,15 +664,187 @@ export function findCrossEmptyPatternsHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findCrossEmptyPatternsResult(state: PuzzleState): TechniqueResult {
+  const { size } = state.def;
+  const deductions: Deduction[] = [];
+
+  // Emit deductions for cells that must be crosses due to pattern constraints
+  // Check rows for pattern-based forced crosses
+  for (let r = 0; r < size; r += 1) {
+    const row = rowCells(state, r);
+    const empties = emptyCells(state, row);
+    const crosses = countCrosses(state, row);
+    const stars = countStars(state, row);
+    
+    // Pattern: 5 crosses + 5 adjacent empty cells -> crosses adjacent to 2nd and 4th empty
+    if (crosses === 5 && empties.length === 5 && areCellsAdjacentInRow(empties)) {
+      const sorted = [...empties].sort((a, b) => a.col - b.col);
+      const secondEmpty = sorted[1];
+      const fourthEmpty = sorted[3];
+      const adjacentCells = findVerticalAdjacentCells(state, [secondEmpty, fourthEmpty]);
+      for (const cell of adjacentCells) {
+        if (getCell(state, cell) === 'empty') {
+          deductions.push({
+            kind: 'cell',
+            technique: 'cross-empty-patterns',
+            cell,
+            type: 'forceEmpty',
+            explanation: `${formatRow(r)} has 5 crosses and 5 adjacent empty cells. Crosses can be placed vertically adjacent to the 2nd and 4th empty spots.`,
+          });
+        }
+      }
+    }
+    
+    // Pattern: 6 crosses + 4 empty cells (2+2) -> crosses adjacent to both groups
+    if (crosses === 6 && empties.length === 4) {
+      const groups = findGroupsOfTwo(empties, true);
+      if (groups) {
+        const adjacentCells = findVerticalAdjacentCells(state, [...groups.group1, ...groups.group2]);
+        for (const cell of adjacentCells) {
+          if (getCell(state, cell) === 'empty') {
+            deductions.push({
+              kind: 'cell',
+              technique: 'cross-empty-patterns',
+              cell,
+              type: 'forceEmpty',
+              explanation: `${formatRow(r)} has 6 crosses and 4 empty cells split as 2+2. Crosses can be placed vertically adjacent to the empty cell groups.`,
+            });
+          }
+        }
+      }
+    }
+    
+    // Pattern: 7 crosses + 3 empty cells (1+2) -> crosses adjacent to pair
+    if (crosses === 7 && empties.length === 3) {
+      const oneThenTwo = findOneThenTwoEmpty(empties, true);
+      if (oneThenTwo) {
+        const adjacentCells = findVerticalAdjacentCells(state, oneThenTwo.pair);
+        for (const cell of adjacentCells) {
+          if (getCell(state, cell) === 'empty') {
+            deductions.push({
+              kind: 'cell',
+              technique: 'cross-empty-patterns',
+              cell,
+              type: 'forceEmpty',
+              explanation: `${formatRow(r)} has 7 crosses and 3 empty cells split as 1+2. Crosses can be placed vertically adjacent to the 2 empty cells.`,
+            });
+          }
+        }
+      }
+    }
+    
+    // Pattern: 1 star + 6 crosses + 3 contiguous empty -> crosses adjacent to middle
+    if (stars === 1 && crosses === 6 && empties.length === 3 && areCellsAdjacentInRow(empties)) {
+      const sorted = [...empties].sort((a, b) => a.col - b.col);
+      const middleEmpty = sorted[1];
+      const adjacentCells = findVerticalAdjacentCells(state, [middleEmpty]);
+      for (const cell of adjacentCells) {
+        if (getCell(state, cell) === 'empty') {
+          deductions.push({
+            kind: 'cell',
+            technique: 'cross-empty-patterns',
+            cell,
+            type: 'forceEmpty',
+            explanation: `${formatRow(r)} has 1 star, 6 crosses, and 3 contiguous empty cells. Crosses can be placed vertically adjacent to the middle empty cell.`,
+          });
+        }
+      }
+    }
+  }
+
+  // Check columns for pattern-based forced crosses (similar logic)
+  for (let c = 0; c < size; c += 1) {
+    const col = colCells(state, c);
+    const empties = emptyCells(state, col);
+    const crosses = countCrosses(state, col);
+    const stars = countStars(state, col);
+    
+    // Pattern: 5 crosses + 5 adjacent empty cells -> crosses adjacent to 2nd and 4th empty
+    if (crosses === 5 && empties.length === 5 && areCellsAdjacentInCol(empties)) {
+      const sorted = [...empties].sort((a, b) => a.row - b.row);
+      const secondEmpty = sorted[1];
+      const fourthEmpty = sorted[3];
+      const adjacentCells = findHorizontalAdjacentCells(state, [secondEmpty, fourthEmpty]);
+      for (const cell of adjacentCells) {
+        if (getCell(state, cell) === 'empty') {
+          deductions.push({
+            kind: 'cell',
+            technique: 'cross-empty-patterns',
+            cell,
+            type: 'forceEmpty',
+            explanation: `${formatCol(c)} has 5 crosses and 5 adjacent empty cells. Crosses can be placed horizontally adjacent to the 2nd and 4th empty spots.`,
+          });
+        }
+      }
+    }
+    
+    // Pattern: 6 crosses + 4 empty cells (2+2) -> crosses adjacent to both groups
+    if (crosses === 6 && empties.length === 4) {
+      const groups = findGroupsOfTwo(empties, false);
+      if (groups) {
+        const adjacentCells = findHorizontalAdjacentCells(state, [...groups.group1, ...groups.group2]);
+        for (const cell of adjacentCells) {
+          if (getCell(state, cell) === 'empty') {
+            deductions.push({
+              kind: 'cell',
+              technique: 'cross-empty-patterns',
+              cell,
+              type: 'forceEmpty',
+              explanation: `${formatCol(c)} has 6 crosses and 4 empty cells split as 2+2. Crosses can be placed horizontally adjacent to the empty cell groups.`,
+            });
+          }
+        }
+      }
+    }
+    
+    // Pattern: 7 crosses + 3 empty cells (1+2) -> crosses adjacent to pair
+    if (crosses === 7 && empties.length === 3) {
+      const oneThenTwo = findOneThenTwoEmpty(empties, false);
+      if (oneThenTwo) {
+        const adjacentCells = findHorizontalAdjacentCells(state, oneThenTwo.pair);
+        for (const cell of adjacentCells) {
+          if (getCell(state, cell) === 'empty') {
+            deductions.push({
+              kind: 'cell',
+              technique: 'cross-empty-patterns',
+              cell,
+              type: 'forceEmpty',
+              explanation: `${formatCol(c)} has 7 crosses and 3 empty cells split as 1+2. Crosses can be placed horizontally adjacent to the 2 empty cells.`,
+            });
+          }
+        }
+      }
+    }
+    
+    // Pattern: 1 star + 6 crosses + 3 contiguous empty -> crosses adjacent to middle
+    if (stars === 1 && crosses === 6 && empties.length === 3 && areCellsAdjacentInCol(empties)) {
+      const sorted = [...empties].sort((a, b) => a.row - b.row);
+      const middleEmpty = sorted[1];
+      const adjacentCells = findHorizontalAdjacentCells(state, [middleEmpty]);
+      for (const cell of adjacentCells) {
+        if (getCell(state, cell) === 'empty') {
+          deductions.push({
+            kind: 'cell',
+            technique: 'cross-empty-patterns',
+            cell,
+            type: 'forceEmpty',
+            explanation: `${formatCol(c)} has 1 star, 6 crosses, and 3 contiguous empty cells. Crosses can be placed horizontally adjacent to the middle empty cell.`,
+          });
+        }
+      }
+    }
+  }
+
   // Try to find a clear hint first
   const hint = findCrossEmptyPatternsHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // Cross-empty patterns find cells that must be crosses due to pattern constraints.
-  // We could emit CellDeduction for cells forced by patterns,
-  // but the technique is complex and primarily produces hints directly.
+  // Return deductions if any were found
+  if (deductions.length > 0) {
+    return { type: 'deductions', deductions };
+  }
 
   return { type: 'none' };
 }

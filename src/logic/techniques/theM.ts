@@ -56,10 +56,16 @@ export function findTheMHint(state: PuzzleState): Hint | null {
  * Find result with deductions support
  */
 export function findTheMResult(state: PuzzleState): TechniqueResult {
+  const deductions: Deduction[] = [];
+
   // Try to find a clear hint first
   const hint = findTheMHint(state);
   if (hint) {
-    return { type: 'hint', hint };
+    // Return hint with deductions so main solver can combine information
+    // The M finds forced cells in M-shaped regions.
+    // We could emit AreaDeduction for M-shaped regions,
+    // but the technique is pattern-specific and primarily produces hints directly.
+    return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
   // The M finds forced cells in M-shaped regions.
