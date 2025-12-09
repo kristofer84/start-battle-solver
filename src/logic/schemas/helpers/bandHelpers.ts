@@ -473,9 +473,9 @@ export function getRegionBandQuota(
         // 1. It's greater than or equal to current stars AND we deduced it (not just conservative default)
         // 2. All remaining candidates are in that band (deterministic)
         // 3. Region is fully inside that band (deterministic)
-        const isFullyInside = band.type === 'rowBand'
-          ? regionFullyInsideRows(region, otherBand.rows, size)
-          : regionFullyInsideCols(region, otherBand.cols, size);
+        // Note: otherBand is always the same type as band (rowBand or colBand) since complementBands
+        // is filtered from the same band enumeration. Since we're in the rowBand branch, otherBand is a RowBand.
+        const isFullyInside = regionFullyInsideRows(region, otherBand.rows, size);
         
         // Check if quota was deduced (not just conservative default of current stars)
         // A quota is "known" if:
@@ -550,8 +550,10 @@ export function getRegionBandQuota(
   
   if (band.type === 'rowBand') {
     rows = band.rows;
+    cols = []; // Not used for row bands
   } else {
     cols = band.cols;
+    rows = []; // Not used for column bands
   }
   
   // Get all regions intersecting the band
@@ -643,6 +645,8 @@ export function allHaveKnownBandQuota(
   band: RowBand | ColumnBand,
   state: BoardState
 ): boolean {
+  const size = state.size;
+  
   // Check if we can compute quotas for all regions
   for (const region of regions) {
     const quota = getRegionBandQuota(region, band, state);
@@ -652,18 +656,30 @@ export function allHaveKnownBandQuota(
     );
     
     // A quota is "known" if:
-    // 1. Region is fully inside band (quota = starsRequired)
-    // 2. All remaining candidates are in band (quota = starsInBand + remainingStars)
-    // 3. Region has no remaining stars (quota = starsInBand)
+    // 1. Region is fully inside band (deterministic)
+    // 2. All remaining candidates are in band (deterministic)
+    // 3. Region has no remaining stars (quota = starsInBand, deterministic)
+    // 4. Quota was deduced (quota > current stars in band, meaning it was computed via A1/A3 logic)
     const remainingStars = region.starsRequired - getStarCountInRegion(region, state);
     const allCandidates = region.cells.filter(
       cellId => state.cellStates[cellId] === 0 // CellState.Unknown
     );
     
+    // Check if region is fully inside band
+    const isFullyInside = band.type === 'rowBand'
+      ? regionFullyInsideRows(region, band.rows, size)
+      : regionFullyInsideCols(region, band.cols, size);
+    
+    // Get current stars in band
+    const allCellsInBand = getAllCellsOfRegionInBand(region, band, state);
+    const starsInBand = allCellsInBand.filter(c => state.cellStates[c] === 1).length;
+    
+    // Only consider quotas "known" if they're truly deterministic (not computed via A1/A3 logic)
+    // A quota computed via A1/A3 may use conservative estimates for other regions, so it's not reliable
     const isKnown = 
       remainingStars === 0 || // No remaining stars, quota is just current stars
       candidatesInBand.length === allCandidates.length || // All candidates in band
-      quota === region.starsRequired; // Fully inside band
+      isFullyInside; // Region is fully inside band
     
     if (!isKnown) {
       return false;
