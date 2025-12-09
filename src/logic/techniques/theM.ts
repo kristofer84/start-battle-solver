@@ -1,5 +1,9 @@
 import type { PuzzleState, Coords } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
+import {
+  isValidStarPlacement,
+  canPlaceAllStarsSimultaneously,
+} from '../constraints/placement';
 import { findMShapes, getCell, emptyCells, countStars, neighbors8 } from '../helpers';
 
 let hintCounter = 0;
@@ -60,17 +64,23 @@ function analyzeMShape(
   mShape: ReturnType<typeof findMShapes>[0]
 ): ForcedCell[] {
   const forcedCells: ForcedCell[] = [];
-  
+
   const starsInRegion = countStars(state, mShape.cells);
   const emptiesInRegion = emptyCells(state, mShape.cells);
+  const viableEmpties = emptiesInRegion.filter((cell) => isValidStarPlacement(state, cell));
   const starsNeeded = state.def.starsPerUnit - starsInRegion;
-  
+
   // If region is already satisfied or has no empties, no forcing
-  if (starsNeeded === 0 || emptiesInRegion.length === 0) return [];
-  
+  if (starsNeeded === 0 || viableEmpties.length === 0) return [];
+
+  if (viableEmpties.length < starsNeeded) return [];
+
   // Strategy 1: If we need exactly as many stars as we have empties, all empties are stars
-  if (starsNeeded === emptiesInRegion.length) {
-    for (const cell of emptiesInRegion) {
+  if (starsNeeded === viableEmpties.length) {
+    const validated = canPlaceAllStarsSimultaneously(state, viableEmpties, state.def.starsPerUnit);
+    if (!validated) return [];
+
+    for (const cell of validated) {
       forcedCells.push({ cell, kind: 'place-star' });
     }
     return forcedCells;
@@ -81,18 +91,18 @@ function analyzeMShape(
   // cells would make it impossible to place the required number of stars
   // due to adjacency constraints, those cells must be crosses.
   
-  for (const emptyCell of emptiesInRegion) {
+  for (const emptyCell of viableEmpties) {
     // Check if placing a star here would block too many other cells
-    const blockedCells = emptiesInRegion.filter((other) => {
+    const blockedCells = viableEmpties.filter((other) => {
       if (other.row === emptyCell.row && other.col === emptyCell.col) return false;
-      
+
       // Check if placing a star at emptyCell would force other to be a cross
       const neighbors = neighbors8(emptyCell, state.def.size);
       return neighbors.some((n) => n.row === other.row && n.col === other.col);
     });
     
     // If placing a star here would leave insufficient cells for remaining stars
-    const remainingCells = emptiesInRegion.length - 1 - blockedCells.length;
+    const remainingCells = viableEmpties.length - 1 - blockedCells.length;
     if (remainingCells < starsNeeded - 1) {
       forcedCells.push({ cell: emptyCell, kind: 'place-cross' });
     }
@@ -103,17 +113,17 @@ function analyzeMShape(
   const peakCells = mShape.peaks;
   const valleyCell = mShape.valley;
   
-  // Check if valley is empty
-  if (getCell(state, valleyCell) === 'empty') {
+  // Check if valley is empty and could host a star legally
+  if (getCell(state, valleyCell) === 'empty' && isValidStarPlacement(state, valleyCell)) {
     // Count how many cells would be blocked if we place a star in the valley
-    const blockedByValley = emptiesInRegion.filter((cell) => {
+    const blockedByValley = viableEmpties.filter((cell) => {
       if (cell.row === valleyCell.row && cell.col === valleyCell.col) return false;
       const neighbors = neighbors8(valleyCell, state.def.size);
       return neighbors.some((n) => n.row === cell.row && n.col === cell.col);
     });
-    
+
     // If placing a star in valley would leave insufficient cells
-    const remainingAfterValley = emptiesInRegion.length - 1 - blockedByValley.length;
+    const remainingAfterValley = viableEmpties.length - 1 - blockedByValley.length;
     if (remainingAfterValley < starsNeeded - 1) {
       forcedCells.push({ cell: valleyCell, kind: 'place-cross' });
     }

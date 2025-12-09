@@ -1,6 +1,10 @@
 import type { PuzzleState, Coords } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
-import { findLShapes, getCell, emptyCells } from '../helpers';
+import {
+  isValidStarPlacement,
+  canPlaceAllStarsSimultaneously,
+} from '../constraints/placement';
+import { findLShapes, emptyCells } from '../helpers';
 
 let hintCounter = 0;
 
@@ -93,7 +97,7 @@ function analyzeKissingLs(
   l2: ReturnType<typeof findLShapes>[0]
 ): ForcedCell[] {
   const forcedCells: ForcedCell[] = [];
-  
+
   // Find the touching point(s) between the two Ls
   const touchingCells: Array<{ c1: Coords; c2: Coords }> = [];
   for (const c1 of l1.cells) {
@@ -115,34 +119,40 @@ function analyzeKissingLs(
   
   // Check each empty cell in L1
   const l1Empties = emptyCells(state, l1.cells);
-  for (const cell of l1Empties) {
+  const l2Empties = emptyCells(state, l2.cells);
+  const viableL1Empties = l1Empties.filter(
+    (cell) =>
+      isValidStarPlacement(state, cell) &&
+      canPlaceAllStarsSimultaneously(state, [cell], state.def.starsPerUnit) !== null
+  );
+  const viableL2Empties = l2Empties.filter(
+    (cell) =>
+      isValidStarPlacement(state, cell) &&
+      canPlaceAllStarsSimultaneously(state, [cell], state.def.starsPerUnit) !== null
+  );
+  for (const cell of viableL1Empties) {
     // Count how many cells in L2 would be blocked if we place a star here
-    const blockedInL2 = l2.cells.filter((c2) => {
-      if (getCell(state, c2) !== 'empty') return false;
+    const blockedInL2 = viableL2Empties.filter((c2) => {
       return areAdjacent(cell, c2);
     });
-    
+
     // If placing a star here would block too many cells in L2,
     // making it impossible for L2 to get 2 stars, this cell must be a cross
-    const l2Empties = emptyCells(state, l2.cells);
-    if (l2Empties.length - blockedInL2.length < 2) {
+    if (viableL2Empties.length - blockedInL2.length < 2) {
       forcedCells.push({ cell, kind: 'place-cross' });
     }
   }
-  
+
   // Check each empty cell in L2
-  const l2Empties = emptyCells(state, l2.cells);
-  for (const cell of l2Empties) {
+  for (const cell of viableL2Empties) {
     // Count how many cells in L1 would be blocked if we place a star here
-    const blockedInL1 = l1.cells.filter((c1) => {
-      if (getCell(state, c1) !== 'empty') return false;
+    const blockedInL1 = viableL1Empties.filter((c1) => {
       return areAdjacent(cell, c1);
     });
-    
+
     // If placing a star here would block too many cells in L1,
     // making it impossible for L1 to get 2 stars, this cell must be a cross
-    const l1Empties = emptyCells(state, l1.cells);
-    if (l1Empties.length - blockedInL1.length < 2) {
+    if (viableL1Empties.length - blockedInL1.length < 2) {
       forcedCells.push({ cell, kind: 'place-cross' });
     }
   }
