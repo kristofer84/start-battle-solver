@@ -598,14 +598,6 @@ watch(
         @toggle-area-labels="() => setShowAreaLabels(!store.showAreaLabels)" @undo="handleUndo" @redo="handleRedo"
         @change-theme="onChangeTheme" />
 
-      <div v-if="store.isThinking" class="thinking-indicator">
-        <div class="thinking-spinner"></div>
-        <span>
-          <template v-if="store.currentTechnique">Testing {{ store.currentTechnique }}...</template>
-          <template v-else>Looking for hint...</template>
-        </span>
-      </div>
-
       <div v-if="store.mode === 'editor'" class="editor-layout">
         <div class="editor-layout__board">
           <StarBattleBoard :state="store.puzzle" selection-mode="region" :selected-region-id="store.selectedRegionId"
@@ -630,7 +622,14 @@ watch(
         <StarBattleBoard :state="store.puzzle" :selection-mode="store.selectionMode"
           :selected-region-id="store.selectedRegionId" :hint-highlight="store.currentHint?.highlights ?? null"
           :result-cells="store.currentHint?.resultCells ?? []" :show-row-col-numbers="store.showRowColNumbers"
-          :show-area-labels="store.showAreaLabels" :violations="violations" mode="play" @cell-click="onCellClick" />
+          :show-area-labels="store.showAreaLabels || !!store.currentHint" :violations="violations" mode="play" @cell-click="onCellClick" />
+        <div v-if="store.isThinking" class="thinking-indicator">
+          <div class="thinking-spinner"></div>
+          <span>
+            <template v-if="store.currentTechnique">Testing {{ store.currentTechnique }}...</template>
+            <template v-else>Looking for hint...</template>
+          </span>
+        </div>
         <div v-if="isPuzzleComplete(store.puzzle)" class="completion-status">
           Puzzle complete
         </div>
