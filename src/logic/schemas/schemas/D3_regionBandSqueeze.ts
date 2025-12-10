@@ -1,7 +1,7 @@
 import type { Schema, SchemaApplication, SchemaContext, ExplanationInstance } from '../types';
 import type { ColumnGroup, Region, RowGroup } from '../model/types';
 import { getStarCountInCells } from '../helpers/cellHelpers';
-import { isValidBoardPlacement } from '../helpers/placementHelpers';
+import { createPlacementValidator } from '../helpers/placementHelpers';
 
 function buildSqueezeExplanation(
   lineIndex: number,
@@ -50,8 +50,9 @@ function processLineAndRegion(
     return;
   }
 
-  const lineValidCandidates = line.cells.filter(cell => isValidBoardPlacement(state, cell));
-  const regionValidCandidates = region.cells.filter(cell => isValidBoardPlacement(state, cell));
+  const validator = createPlacementValidator(state);
+  const lineValidCandidates = line.cells.filter(cell => validator.canPlace(cell));
+  const regionValidCandidates = region.cells.filter(cell => validator.canPlace(cell));
 
   const lineValidOutside = lineValidCandidates.filter(cell => !shape.has(cell)).length;
   const regionValidOutside = regionValidCandidates.filter(cell => !shape.has(cell)).length;
