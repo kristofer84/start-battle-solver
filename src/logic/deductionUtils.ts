@@ -22,8 +22,12 @@ export function filterValidDeductions(
       }
       case 'block': {
         // Check if block is already resolved
-        const baseRow = 2 * ded.block.bRow;
-        const baseCol = 2 * ded.block.bCol;
+        const baseRow = ded.technique === 'square-counting'
+          ? ded.block.bRow
+          : 2 * ded.block.bRow;
+        const baseCol = ded.technique === 'square-counting'
+          ? ded.block.bCol
+          : 2 * ded.block.bCol;
         const blockCells: Coords[] = [
           { row: baseRow, col: baseCol },
           { row: baseRow, col: baseCol + 1 },
