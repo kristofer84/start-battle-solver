@@ -28,77 +28,225 @@ type BlockInfo = {
 };
 
 function blocksOverlap(block1: Coords[], block2: Coords[]): boolean {
-  const cells1 = new Set(block1.map(c => `${c.row},${c.col}`));
-  return block2.some(c => cells1.has(`${c.row},${c.col}`));
+  // 2×2-blockar är små, dubbel loop är billigare än att skapa Set varje gång
+  for (let i = 0; i < block1.length; i += 1) {
+    const c1 = block1[i];
+    for (let j = 0; j < block2.length; j += 1) {
+      const c2 = block2[j];
+      if (c1.row === c2.row && c1.col === c2.col) return true;
+    }
+  }
+  return false;
 }
 
 function blockInfosOverlap(block1: BlockInfo, block2: BlockInfo): boolean {
   return blocksOverlap(block1.cells, block2.cells);
 }
 
-function findNonOverlappingSetsLimited(
-  blocks: BlockInfo[],
-  targetCount: number,
-  maxSets: number,
-): BlockInfo[][] {
-  const result: BlockInfo[][] = [];
-  const chosen: BlockInfo[] = [];
-
-  function backtrack(start: number): boolean {
-    if (chosen.length === targetCount) {
-      result.push([...chosen]);
-      return result.length < maxSets;
-    }
-
-    for (let i = start; i < blocks.length; i += 1) {
-      const block = blocks[i];
-      if (chosen.some(b => blockInfosOverlap(b, block))) continue;
-
-      chosen.push(block);
-      const shouldContinue = backtrack(i + 1);
-      chosen.pop();
-      if (!shouldContinue) return false;
-    }
-
-    return true;
-  }
-
-  backtrack(0);
-  return result;
+function cellKey(c: Coords): string {
+  return `${c.row},${c.col}`;
 }
 
-function hasValidPlacement(
-  state: PuzzleState,
-  blocks: BlockInfo[],
-  starsPerUnit: number,
-): boolean {
-  if (blocks.some(block => block.placeable.length === 0)) {
+function coordsKey(cells: Coords[]): string {
+  // Sortera för att göra nyckeln ordningsoberoende (bra för cache)
+  const sorted = [...cells].sort((a, b) =>
+    a.row === b.row ? a.col - b.col : a.row - b.row,
+  );
+  return sorted.map(cellKey).join('|');
+}
+
+/**
+ * Check if a cell is a star candidate (empty and can potentially be a star)
+ */
+function isStarCandidate(state: PuzzleState, cell: Coords, starsPerUnit: number): boolean {
+  if (getCell(state, cell) !== 'empty') {
     return false;
   }
+  // Check if placing a star here would be globally valid
+  return canPlaceAllStarsSimultaneously(state, [cell], starsPerUnit) !== null;
+}
 
-  const sortedBlocks = [...blocks].sort(
-    (a, b) => a.placeable.length - b.placeable.length,
-  );
+/**
+ * Find maximum number of non-overlapping blocks that can host a star simultaneously
+ * This implements the C1 precondition check
+ */
+function findMaxNonOverlappingBlockSets(
+  blocks: BlockInfo[],
+  state: PuzzleState,
+  starsPerUnit: number,
+): { maxSize: number; maxSets: BlockInfo[][] } {
+  if (blocks.length === 0) {
+    return { maxSize: 0, maxSets: [] };
+  }
 
-  function search(index: number, chosen: Coords[]): boolean {
-    if (index === sortedBlocks.length) {
-      return true;
-    }
+  let maxSize = 0;
+  const maxSets: BlockInfo[][] = [];
 
-    for (const cell of sortedBlocks[index].placeable) {
-      const nextChosen = [...chosen, cell];
-      if (
-        canPlaceAllStarsSimultaneously(state, nextChosen, starsPerUnit) !== null &&
-        search(index + 1, nextChosen)
-      ) {
-        return true;
+  const cache = new Map<string, boolean>();
+  function canPlaceCached(cells: Coords[]): boolean {
+    const key = coordsKey(cells);
+    const cached = cache.get(key);
+    if (cached !== undefined) return cached;
+    const ok = canPlaceAllStarsSimultaneously(state, cells, starsPerUnit) !== null;
+    cache.set(key, ok);
+    return ok;
+  }
+
+  function backtrack(start: number, chosenBlocks: BlockInfo[], chosenCells: Coords[]): void {
+    const chosenLen = chosenBlocks.length;
+
+    if (chosenLen > 0) {
+      // Verifiera att det finns en giltig placering: vi försöker lägga en stjärna i
+      // varje block i ordning. chosenCells innehåller redan valda celler.
+      const testPlacement: Coords[] = [];
+      const localChosenCells = [...chosenCells]; // egna referenser
+
+      for (const block of chosenBlocks) {
+        let foundValid = false;
+        for (const cell of block.placeable) {
+          const trial = [...localChosenCells, cell];
+          if (canPlaceCached(trial)) {
+            localChosenCells.push(cell);
+            testPlacement.push(cell);
+            foundValid = true;
+            break;
+          }
+        }
+        if (!foundValid) {
+          return; // denna blockmängd är inte globalt giltig
+        }
+      }
+
+      if (chosenLen > maxSize) {
+        maxSize = chosenLen;
+        maxSets.length = 0;
+        maxSets.push([...chosenBlocks]);
+      } else if (chosenLen === maxSize && maxSize > 0) {
+        maxSets.push([...chosenBlocks]);
       }
     }
 
-    return false;
+    const n = blocks.length;
+
+    // Övre gräns: om även om vi tar alla kvarvarande block inte kan slå maxSize, avbryt
+    if (chosenBlocks.length + (n - start) <= maxSize) {
+      return;
+    }
+
+    for (let i = start; i < n; i += 1) {
+      const block = blocks[i];
+      if (chosenBlocks.some(b => blockInfosOverlap(b, block))) continue;
+
+      chosenBlocks.push(block);
+      backtrack(i + 1, chosenBlocks, chosenCells);
+      chosenBlocks.pop();
+    }
   }
 
-  return search(0, []);
+  backtrack(0, [], []);
+  return { maxSize, maxSets };
+}
+
+/**
+ * Enumerate all subsets of non-overlapping blocks of a given size
+ */
+function getNonOverlappingBlockSubsets(
+  blocks: BlockInfo[],
+  targetSize: number,
+): BlockInfo[][] {
+  const result: BlockInfo[][] = [];
+  const n = blocks.length;
+
+  function backtrack(start: number, chosen: BlockInfo[]): void {
+    if (chosen.length === targetSize) {
+      result.push([...chosen]);
+      return;
+    }
+
+    // Om för få block återstår för att nå targetSize, avbryt
+    if (chosen.length + (n - start) < targetSize) return;
+
+    for (let i = start; i < n; i += 1) {
+      const block = blocks[i];
+      if (chosen.some(ch => blockInfosOverlap(ch, block))) continue;
+      chosen.push(block);
+      backtrack(i + 1, chosen);
+      chosen.pop();
+    }
+  }
+
+  backtrack(0, []);
+  return result;
+}
+
+/**
+ * Enumerate all ways to place stars in a set of blocks
+ */
+interface Arrangement {
+  stars: Coords[];    // coordinates of stars placed in this band
+}
+
+function enumerateStarsInBlocks(
+  state: PuzzleState,
+  blocks: BlockInfo[],
+  starsPerUnit: number,
+  arrangements: Arrangement[],
+): void {
+  const chosen: Coords[] = [];
+
+  const cache = new Map<string, boolean>();
+  function canPlaceCached(cells: Coords[]): boolean {
+    const key = coordsKey(cells);
+    const cached = cache.get(key);
+    if (cached !== undefined) return cached;
+    const ok = canPlaceAllStarsSimultaneously(state, cells, starsPerUnit) !== null;
+    cache.set(key, ok);
+    return ok;
+  }
+
+  function backtrack(index: number): void {
+    if (index === blocks.length) {
+      if (canPlaceCached(chosen)) {
+        arrangements.push({ stars: [...chosen] });
+      }
+      return;
+    }
+
+    const block = blocks[index];
+
+    for (const cell of block.placeable) {
+      chosen.push(cell);
+      if (canPlaceCached(chosen)) {
+        backtrack(index + 1);
+      }
+      chosen.pop();
+    }
+  }
+
+  backtrack(0);
+}
+
+/**
+ * For one band (two rows), enumerate all globally valid ways to place
+ * `remainingStarsInBand` stars using 2×2 blocks.
+ */
+function enumerateBandArrangements(
+  state: PuzzleState,
+  blocks: BlockInfo[],
+  remainingStarsInBand: number,
+  starsPerUnit: number,
+): Arrangement[] {
+  const arrangements: Arrangement[] = [];
+
+  // 1. Enumerate subsets of non-overlapping blocks of size remainingStarsInBand
+  const allBlockSubsets = getNonOverlappingBlockSubsets(blocks, remainingStarsInBand);
+
+  for (const blockSet of allBlockSubsets) {
+    // 2. Within this subset, pick one candidate cell per block
+    enumerateStarsInBlocks(state, blockSet, starsPerUnit, arrangements);
+  }
+
+  return arrangements;
 }
 
 function buildRowBlocks(
@@ -157,7 +305,7 @@ function buildColumnBlocks(
 
 /**
  * 2x2 Square Counting technique:
- * 
+ *
  * For consecutive rows (or columns), if the number of valid 2x2 blocks equals
  * the number of remaining stars needed, then each block must contain exactly one star.
  * If a block has only one empty cell, that cell must be the star.
@@ -174,10 +322,21 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
   const colPlaceable = (block: Coords[]): Coords[] =>
     emptyCells(state, block).filter(cell => canPlaceAllStars(state, [cell]));
 
+  // enkel cache för star-candidate inom ett anrop
+  const starCandidateCache = new Map<string, boolean>();
+  function isStarCandidateCached(cell: Coords): boolean {
+    const k = cellKey(cell);
+    const cached = starCandidateCache.get(k);
+    if (cached !== undefined) return cached;
+    const ok = isStarCandidate(state, cell, starsPerUnit);
+    starCandidateCache.set(k, ok);
+    return ok;
+  }
+
   // Check consecutive pairs of rows
   for (let startRow = 0; startRow <= size - 2; startRow += 1) {
     const rows = [startRow, startRow + 1];
-    
+
     // Count stars needed in these rows
     let totalStarsNeeded = 0;
     let totalStarsPlaced = 0;
@@ -187,239 +346,101 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
       totalStarsNeeded += starsPerUnit;
       totalStarsPlaced += rowStars;
     }
-    
-    const remainingStars = totalStarsNeeded - totalStarsPlaced;
-    if (remainingStars <= 0) continue;
-    
-    // Debug logging for rows 2 & 3 (0-indexed), rows 3 & 4 (0-indexed), rows 4 & 5 (0-indexed), or rows 0 & 1
-    const isDebugCase = (startRow === 2 && size === 10) || (startRow === 3 && size === 10) || (startRow === 4 && size === 10) || (startRow === 0 && size === 10);
-    if (isDebugCase) {
-      console.log(`[SQUARE COUNTING] Checking rows ${rows[0]} & ${rows[1]}: need ${remainingStars} more stars (${totalStarsPlaced} placed, ${totalStarsNeeded} needed)`);
-    }
 
-    const allValidBlocks = buildRowBlocks(state, startRow, rowPlaceable);
-    if (isDebugCase) {
-      console.log(`[SQUARE COUNTING] All valid blocks for rows ${startRow},${startRow+1}:`);
-      for (const block of allValidBlocks) {
-        console.log(`[SQUARE COUNTING]   Block (${block.cells[0].row},${block.cells[0].col}): ${block.placeable.length} placeable cell(s): [${block.placeable.map(c => `(${c.row},${c.col})`).join(', ')}]`);
-      }
-    }
-    if (allValidBlocks.length < remainingStars) continue;
+    const remainingStarsInBand = totalStarsNeeded - totalStarsPlaced;
+    if (remainingStarsInBand <= 0) continue;
 
-    const allNonOverlappingSets = findNonOverlappingSetsLimited(
-      allValidBlocks,
-      remainingStars,
-      10, // Increase limit to find more feasible sets
-    );
+    // Build all valid 2×2 blocks for this band
+    const rowBlocks = buildRowBlocks(state, startRow, rowPlaceable);
 
-    const feasibleSets = allNonOverlappingSets.filter(set =>
-      hasValidPlacement(state, set, starsPerUnit),
-    );
-    
-    if (isDebugCase) {
-      console.log(`[SQUARE COUNTING] Rows ${startRow},${startRow+1}: Found ${allValidBlocks.length} total valid blocks, ${allNonOverlappingSets.length} set(s) of ${remainingStars} non-overlapping blocks`);
-      if (allNonOverlappingSets.length > 0) {
-        for (let i = 0; i < allNonOverlappingSets.length; i++) {
-          const set = allNonOverlappingSets[i];
-          console.log(`[SQUARE COUNTING]   Set ${i+1}: blocks at [${set.map(b => `(${b.cells[0].row},${b.cells[0].col})`).join(', ')}]`);
-        }
-      }
-      if (feasibleSets.length > 0) {
-        console.log(`[SQUARE COUNTING] Found ${feasibleSets.length} feasible set(s)`);
-        for (let i = 0; i < feasibleSets.length; i++) {
-          const set = feasibleSets[i];
-          console.log(`[SQUARE COUNTING]   Feasible Set ${i+1}: blocks at [${set.map(b => `(${b.cells[0].row},${b.cells[0].col})`).join(', ')}]`);
-          for (const block of set) {
-            console.log(`[SQUARE COUNTING]     Block (${block.cells[0].row},${block.cells[0].col}): ${block.placeable.length} placeable cell(s): [${block.placeable.map(c => `(${c.row},${c.col})`).join(', ')}]`);
-          }
-        }
-      }
-    }
-    
-    if (feasibleSets.length === 0) continue;
+    // Step 1: C1 precondition check - compute maximum set of non-overlapping blocks
+    const { maxSize } = findMaxNonOverlappingBlockSets(rowBlocks, state, starsPerUnit);
 
-    // If multiple feasible sets remain, we can still act on cells that are forced in every set
-    const candidateSets =
-      feasibleSets.length === 1
-        ? feasibleSets
-        : feasibleSets.filter(set => set.length === remainingStars);
-    if (candidateSets.length === 0) continue;
-
-    const validBlocks = candidateSets[0];
-    if (validBlocks.length !== remainingStars) continue;
-
-    if (isDebugCase) {
-      console.log(`[SQUARE COUNTING] Using unique set with blocks at: [${validBlocks.map(b => `(${b.cells[0].row},${b.cells[0].col})`).join(', ')}]`);
-    }
-    
-    // Collect all cells from all blocks that must contain stars
-    const allBlockCells: Coords[] = [];
-    for (const block of validBlocks) {
-      allBlockCells.push(...block.cells);
-    }
-    
-    // Find blocks with only one empty cell - that cell must be a star
-    const forcedStars: Coords[] = [];
-    const forcedAcrossSets: Coords[] | null = candidateSets.length === 1 ? null : (() => {
-      // First, find cells from blocks with exactly one placeable cell (strongest case)
-      let intersection: Coords[] | null = null;
-
-      for (const set of candidateSets) {
-        const forcedInSet = set.flatMap(block =>
-          block.placeable.length === 1 ? block.placeable : [],
-        );
-
-        if (intersection === null) {
-          intersection = forcedInSet;
-        } else {
-          const forcedKeys = new Set(forcedInSet.map(c => `${c.row},${c.col}`));
-          intersection = intersection.filter(c => forcedKeys.has(`${c.row},${c.col}`));
-        }
-      }
-
-      // Also check: if a block appears in every feasible set and has only one placeable cell,
-      // that cell is forced (even if other blocks in the sets differ)
-      const blockKeysInAllSets = new Map<string, { block: BlockInfo; count: number }>();
-      
-      for (const set of candidateSets) {
-        for (const block of set) {
-          const key = `${block.cells[0].row},${block.cells[0].col}`;
-          const existing = blockKeysInAllSets.get(key);
-          if (existing) {
-            existing.count += 1;
-          } else {
-            blockKeysInAllSets.set(key, { block, count: 1 });
-          }
-        }
-      }
-
-      // Blocks that appear in all feasible sets
-      const blocksInAllSets = Array.from(blockKeysInAllSets.values())
-        .filter(({ count }) => count === candidateSets.length)
-        .map(({ block }) => block);
-
-      // If a block appears in all sets and has only one placeable cell, that cell is forced
-      for (const block of blocksInAllSets) {
-        if (block.placeable.length === 1) {
-          const cell = block.placeable[0];
-          const cellKey = `${cell.row},${cell.col}`;
-          if (!intersection || !intersection.some(c => `${c.row},${c.col}` === cellKey)) {
-            if (intersection === null) {
-              intersection = [cell];
-            } else {
-              intersection.push(cell);
-            }
-          }
-        }
-      }
-
-      // Also check: if multiple blocks force the same cell, and that cell appears in every set
-      // (even if different blocks force it), then it's forced
-      const cellCounts = new Map<string, { cell: Coords; count: number }>();
-      for (const set of candidateSets) {
-        const cellsInSet = new Set<string>();
-        for (const block of set) {
-          if (block.placeable.length === 1) {
-            const cell = block.placeable[0];
-            const key = `${cell.row},${cell.col}`;
-            if (!cellsInSet.has(key)) {
-              cellsInSet.add(key);
-              const existing = cellCounts.get(key);
-              if (existing) {
-                existing.count += 1;
-              } else {
-                cellCounts.set(key, { cell, count: 1 });
-              }
-            }
-          }
-        }
-      }
-      
-      // Cells that appear in all sets (forced by any block)
-      const cellsInAllSets = Array.from(cellCounts.values())
-        .filter(({ count }) => count === candidateSets.length)
-        .map(({ cell }) => cell);
-      
-      // Add cells that appear in all sets to intersection
-      for (const cell of cellsInAllSets) {
-        const cellKey = `${cell.row},${cell.col}`;
-        if (!intersection || !intersection.some(c => `${c.row},${c.col}` === cellKey)) {
-          if (intersection === null) {
-            intersection = [cell];
-          } else {
-            intersection.push(cell);
-          }
-        }
-      }
-
-      if (isDebugCase && intersection) {
-        console.log(`[SQUARE COUNTING] Forced cells across all ${candidateSets.length} sets: [${intersection.map(c => `(${c.row},${c.col})`).join(', ')}]`);
-      }
-      return intersection && intersection.length > 0 ? intersection : null;
-    })();
-
-    const targetBlocks = candidateSets[0];
-
-    for (const block of targetBlocks) {
-      if (block.placeable.length === 1) {
-        const forcedStar = block.placeable[0];
-          
-          // Verify this cell can actually have a star (not adjacent to existing stars)
-          // Check adjacency to stars outside the block
-          let hasAdjacentStar = false;
-          for (let dr = -1; dr <= 1; dr += 1) {
-            for (let dc = -1; dc <= 1; dc += 1) {
-              if (dr === 0 && dc === 0) continue;
-              const nr = forcedStar.row + dr;
-              const nc = forcedStar.col + dc;
-              if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
-                // Skip if it's in the same block
-                if (block.cells.some(c => c.row === nr && c.col === nc)) continue;
-                if (getCell(state, { row: nr, col: nc }) === 'star') {
-                  hasAdjacentStar = true;
-                  break;
-                }
-              }
-            }
-            if (hasAdjacentStar) break;
-          }
-          
-        if (!hasAdjacentStar) {
-          // Also check row/column/region quotas
-          const row = rowCells(state, forcedStar.row);
-          const col = colCells(state, forcedStar.col);
-          const regionId = state.def.regions[forcedStar.row][forcedStar.col];
-          const region = regionCells(state, regionId);
-
-          if (
-            countStars(state, row) < starsPerUnit &&
-            countStars(state, col) < starsPerUnit &&
-            countStars(state, region) < starsPerUnit
-          ) {
-            forcedStars.push(forcedStar);
-          }
-        }
-      }
-    }
-
-    // If there are multiple feasible sets, only act when they force the same cells
-    if (candidateSets.length > 1 && !forcedAcrossSets) {
+    // If maximum number of non-overlapping blocks is less than remaining stars, skip
+    if (maxSize < remainingStarsInBand) {
       continue;
     }
 
-    // If we can place any stars, return them with all blocks highlighted
-    const sharedForced = forcedAcrossSets ?? forcedStars;
+    // Step 2: Exhaustively enumerate all globally valid arrangements
+    const arrangements = enumerateBandArrangements(
+      state,
+      rowBlocks,
+      remainingStarsInBand,
+      starsPerUnit,
+    );
 
-    if (sharedForced.length > 0) {
-      const explanation = candidateSets.length === 1
-        ? `${formatUnitList(rows, formatRow)} need ${remainingStars} more star(s), and there are exactly ${validBlocks.length} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star. ${sharedForced.length === 1 ? 'This block has only one empty cell, so it must be a star.' : `${sharedForced.length} of these blocks have only one empty cell each, so those cells must be stars.`}`
-        : `${formatUnitList(rows, formatRow)} need ${remainingStars} more star(s). Every feasible arrangement of ${remainingStars} non-overlapping 2×2 block(s) forces star(s) at ${sharedForced.map(c => `(${c.row},${c.col})`).join(', ')}.`;
+    if (arrangements.length === 0) {
+      continue;
+    }
+
+    // Step 3: Derive forced stars and crosses from all arrangements
+    const starCountByCell = new Map<string, number>();
+    const total = arrangements.length;
+
+    // Count how often each cell is a star
+    for (const arr of arrangements) {
+      for (const c of arr.stars) {
+        const k = cellKey(c);
+        starCountByCell.set(k, (starCountByCell.get(k) ?? 0) + 1);
+      }
+    }
+
+    // Collect all cells from all blocks for highlighting
+    const allBlockCells: Coords[] = [];
+    for (const block of rowBlocks) {
+      allBlockCells.push(...block.cells);
+    }
+
+    const forcedStars: Coords[] = [];
+    const forcedEmpties: Coords[] = [];
+
+    // Check each empty cell in the band rows
+    for (const r of rows) {
+      const rowCoords = rowCells(state, r);
+
+      for (const cellCoords of rowCoords) {
+        if (getCell(state, cellCoords) !== 'empty') continue;
+
+        // If this cell is not even a star candidate, skip
+        if (!isStarCandidateCached(cellCoords)) continue;
+
+        const k = cellKey(cellCoords);
+        const count = starCountByCell.get(k) ?? 0;
+
+        if (count === total) {
+          // This cell is a star in every valid arrangement
+          forcedStars.push(cellCoords);
+        } else if (count === 0) {
+          // This cell is never a star in any valid arrangement
+          // But only mark as forced empty if it's within a block that could host a star
+          const isInAnyBlock = rowBlocks.some(block =>
+            block.cells.some(
+              bc => bc.row === cellCoords.row && bc.col === cellCoords.col,
+            ),
+          );
+          if (isInAnyBlock) {
+            forcedEmpties.push(cellCoords);
+          }
+        }
+      }
+    }
+
+    // Om du senare använder forcedEmpties kan de läggas in i hint/result, logik här lämnas oförändrad
+
+    if (forcedStars.length > 0) {
+      const explanation =
+        `Row ${formatRow(rows[0])} and Row ${formatRow(rows[1])} ` +
+        `need ${remainingStarsInBand} more star(s). ` +
+        `Every feasible arrangement of ${remainingStarsInBand} non-overlapping 2×2 block(s) ` +
+        `forces star(s) at ${forcedStars
+          .map(c => `(${formatRow(c.row)}, ${formatCol(c.col)})`)
+          .join(', ')}.`;
 
       const candidateHint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: 'square-counting',
-        resultCells: sharedForced,
+        resultCells: forcedStars,
         explanation,
         highlights: {
           rows,
@@ -427,7 +448,7 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
         },
       };
 
-      const score = sharedForced.length * 100 + remainingStars;
+      const score = forcedStars.length * 100 + remainingStarsInBand;
       if (!bestHint || score > bestHint.score) {
         bestHint = { hint: candidateHint, score };
       }
@@ -437,7 +458,7 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
   // Check consecutive pairs of columns (similar logic)
   for (let startCol = 0; startCol <= size - 2; startCol += 1) {
     const cols = [startCol, startCol + 1];
-    
+
     // Count stars needed in these columns
     let totalStarsNeeded = 0;
     let totalStarsPlaced = 0;
@@ -447,7 +468,7 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
       totalStarsNeeded += starsPerUnit;
       totalStarsPlaced += colStars;
     }
-    
+
     const remainingStars = totalStarsNeeded - totalStarsPlaced;
     if (remainingStars <= 0) continue;
 
@@ -471,34 +492,33 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
     for (const block of validBlocks) {
       if (block.placeable.length === 1) {
         const forcedStar = block.placeable[0];
-        
+
         // Verify this cell can actually have a star (not adjacent to existing stars)
-        // Check adjacency to stars outside the block
         let hasAdjacentStar = false;
         for (let dr = -1; dr <= 1; dr += 1) {
-      for (let dc = -1; dc <= 1; dc += 1) {
-        if (dr === 0 && dc === 0) continue;
-        const nr = forcedStar.row + dr;
-        const nc = forcedStar.col + dc;
-        if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
-          // Skip if it's in the same block
-          if (block.cells.some(c => c.row === nr && c.col === nc)) continue;
-          if (getCell(state, { row: nr, col: nc }) === 'star') {
-            hasAdjacentStar = true;
-            break;
-          }
-        }
+          for (let dc = -1; dc <= 1; dc += 1) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = forcedStar.row + dr;
+            const nc = forcedStar.col + dc;
+            if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+              // Skip if it's in the same block
+              if (block.cells.some(c => c.row === nr && c.col === nc)) continue;
+              if (getCell(state, { row: nr, col: nc }) === 'star') {
+                hasAdjacentStar = true;
+                break;
+              }
+            }
           }
           if (hasAdjacentStar) break;
         }
-        
+
         if (!hasAdjacentStar) {
           // Also check row/column/region quotas
           const row = rowCells(state, forcedStar.row);
           const col = colCells(state, forcedStar.col);
           const regionId = state.def.regions[forcedStar.row][forcedStar.col];
           const region = regionCells(state, regionId);
-          
+
           if (
             countStars(state, row) < starsPerUnit &&
             countStars(state, col) < starsPerUnit &&
@@ -509,10 +529,13 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
         }
       }
     }
-    
-    // If we can place any stars, return them with all blocks highlighted
+
     if (forcedStars.length > 0) {
-      const explanation = `${formatUnitList(cols, formatCol)} need ${remainingStars} more star(s), and there are exactly ${validBlocks.length} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star. ${forcedStars.length === 1 ? 'This block has only one empty cell, so it must be a star.' : `${forcedStars.length} of these blocks have only one empty cell each, so those cells must be stars.`}`;
+      const explanation = `${formatUnitList(cols, formatCol)} need ${remainingStars} more star(s), and there are exactly ${validBlocks.length} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star. ${
+        forcedStars.length === 1
+          ? 'This block has only one empty cell, so it must be a star.'
+          : `${forcedStars.length} of these blocks have only one empty cell each, so those cells must be stars.`
+      }`;
 
       const candidateHint: Hint = {
         id: nextHintId(),
@@ -546,6 +569,43 @@ function formatUnitList(indices: number[], formatter: (n: number) => string): st
 }
 
 /**
+ * Find non-overlapping subsets of blocks of a given size, up to maxSets results.
+ * Used by the "result" variant of the technique to detect a unique block-set.
+ */
+function findNonOverlappingSetsLimited(
+  blocks: BlockInfo[],
+  targetSize: number,
+  maxSets: number,
+): BlockInfo[][] {
+  const result: BlockInfo[][] = [];
+  const n = blocks.length;
+
+  function backtrack(start: number, chosen: BlockInfo[]): void {
+    if (chosen.length === targetSize) {
+      result.push([...chosen]);
+      return;
+    }
+    if (start === n || result.length >= maxSets) return;
+
+    // Pruning: om det inte finns tillräckligt många block kvar, avbryt
+    if (chosen.length + (n - start) < targetSize) return;
+
+    for (let i = start; i < n; i += 1) {
+      if (result.length >= maxSets) return;
+
+      const block = blocks[i];
+      if (chosen.some(ch => blockInfosOverlap(ch, block))) continue;
+      chosen.push(block);
+      backtrack(i + 1, chosen);
+      chosen.pop();
+    }
+  }
+
+  backtrack(0, []);
+  return result;
+}
+
+/**
  * Find result with deductions support
  * Returns block deductions when pattern is detected but no forced stars can be placed
  */
@@ -559,7 +619,7 @@ export function findSquareCountingResult(state: PuzzleState): TechniqueResult {
   // Check consecutive pairs of rows
   for (let startRow = 0; startRow <= size - 2; startRow += 1) {
     const rows = [startRow, startRow + 1];
-    
+
     // Count stars needed in these rows
     let totalStarsNeeded = 0;
     let totalStarsPlaced = 0;
@@ -569,7 +629,7 @@ export function findSquareCountingResult(state: PuzzleState): TechniqueResult {
       totalStarsNeeded += starsPerUnit;
       totalStarsPlaced += rowStars;
     }
-    
+
     const remainingStars = totalStarsNeeded - totalStarsPlaced;
     if (remainingStars <= 0) continue;
 
@@ -582,31 +642,30 @@ export function findSquareCountingResult(state: PuzzleState): TechniqueResult {
       2,
     );
 
-    // The technique only applies when there is exactly ONE set of non-overlapping blocks
-    // If there are multiple sets, we can't determine which specific blocks must contain stars
     if (allNonOverlappingSets.length === 1) {
       const validBlocks = allNonOverlappingSets[0];
       if (validBlocks.length === remainingStars) {
-        // Create block deductions for each block in the unique set
         for (const block of validBlocks) {
-          // Use top-left cell coordinates directly (main solver handles square-counting specially)
           const blockDeduction: BlockDeduction = {
             kind: 'block',
             technique: 'square-counting',
             block: { bRow: block.cells[0].row, bCol: block.cells[0].col },
             starsRequired: 1,
-            explanation: `${formatUnitList(rows, formatRow)} need ${remainingStars} more star(s), and there are exactly ${allNonOverlappingSets.length} set(s) of ${remainingStars} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star.`,
+            explanation: `${formatUnitList(
+              rows,
+              formatRow,
+            )} need ${remainingStars} more star(s), and there are exactly ${allNonOverlappingSets.length} set(s) of ${remainingStars} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star.`,
           };
           deductions.push(blockDeduction);
         }
       }
     }
   }
-  
+
   // Check consecutive pairs of columns (similar logic)
   for (let startCol = 0; startCol <= size - 2; startCol += 1) {
     const cols = [startCol, startCol + 1];
-    
+
     // Count stars needed in these columns
     let totalStarsNeeded = 0;
     let totalStarsPlaced = 0;
@@ -616,7 +675,7 @@ export function findSquareCountingResult(state: PuzzleState): TechniqueResult {
       totalStarsNeeded += starsPerUnit;
       totalStarsPlaced += colStars;
     }
-    
+
     const remainingStars = totalStarsNeeded - totalStarsPlaced;
     if (remainingStars <= 0) continue;
 
@@ -629,20 +688,19 @@ export function findSquareCountingResult(state: PuzzleState): TechniqueResult {
       2,
     );
 
-    // The technique only applies when there is exactly ONE set of non-overlapping blocks
-    // If there are multiple sets, we can't determine which specific blocks must contain stars
     if (allNonOverlappingSets.length === 1) {
       const validBlocks = allNonOverlappingSets[0];
       if (validBlocks.length === remainingStars) {
-        // Create block deductions for each block in the unique set
         for (const block of validBlocks) {
-          // Use top-left cell coordinates directly (main solver handles square-counting specially)
           const blockDeduction: BlockDeduction = {
             kind: 'block',
             technique: 'square-counting',
             block: { bRow: block.cells[0].row, bCol: block.cells[0].col },
             starsRequired: 1,
-            explanation: `${formatUnitList(cols, formatCol)} need ${remainingStars} more star(s), and there are exactly ${allNonOverlappingSets.length} set(s) of ${remainingStars} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star.`,
+            explanation: `${formatUnitList(
+              cols,
+              formatCol,
+            )} need ${remainingStars} more star(s), and there are exactly ${allNonOverlappingSets.length} set(s) of ${remainingStars} non-overlapping 2×2 block(s) where stars can be placed. Each block must contain exactly one star.`,
           };
           deductions.push(blockDeduction);
         }
@@ -650,18 +708,14 @@ export function findSquareCountingResult(state: PuzzleState): TechniqueResult {
     }
   }
 
-  // Try to find a clear hint first (forced star placements)
   const hint = findSquareCountingHint(state);
   if (hint) {
-    // Return hint with deductions so main solver can combine information
     return { type: 'hint', hint, deductions: deductions.length > 0 ? deductions : undefined };
   }
 
-  // If we found deductions but no clear hint, return them for main solver
   if (deductions.length > 0) {
     return { type: 'deductions', deductions };
   }
 
   return { type: 'none' };
 }
-
