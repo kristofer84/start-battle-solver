@@ -13,6 +13,7 @@ import {
 } from '../helpers';
 import { canPlaceAllStars } from './undercounting';
 import { canPlaceAllStarsSimultaneously } from '../constraints/placement';
+import { isHintConsistent } from '../hintValidation';
 
 let hintCounter = 0;
 
@@ -332,6 +333,10 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
         },
       };
 
+      if (!isHintConsistent(state, candidateHint)) {
+        continue;
+      }
+
       const score = sharedForced.length * 100 + remainingStars;
       if (!bestHint || score > bestHint.score) {
         bestHint = { hint: candidateHint, score };
@@ -430,6 +435,10 @@ export function findSquareCountingHint(state: PuzzleState): Hint | null {
           cells: allBlockCells,
         },
       };
+
+      if (!isHintConsistent(state, candidateHint)) {
+        continue;
+      }
 
       const score = forcedStars.length * 100 + remainingStars;
       if (!bestHint || score > bestHint.score) {

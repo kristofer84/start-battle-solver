@@ -20,6 +20,7 @@ import {
   extractCellDeductions,
   cellsEqual,
 } from './deductionUtils';
+import { isHintConsistent } from './hintValidation';
 
 let hintCounter = 0;
 
@@ -148,7 +149,7 @@ function resolveCellDeductions(
       ? `Combined deductions from ${Array.from(techniques)[0]} technique.`
       : `Combined deductions from ${techniques.size} techniques: ${Array.from(techniques).join(', ')}.`;
 
-  return {
+  const hint: Hint = {
     id: nextHintId(),
     kind,
     technique: Array.from(techniques)[0] as any, // Use first technique as primary
@@ -156,6 +157,12 @@ function resolveCellDeductions(
     explanation,
     schemaCellTypes: stars.length > 0 && crosses.length > 0 ? schemaCellTypes : undefined,
   };
+
+  if (!isHintConsistent(state, hint)) {
+    return null;
+  }
+
+  return hint;
 }
 
 /**
@@ -202,24 +209,28 @@ function resolveAreaDeductions(
       emptyCandidates.length === 1
     ) {
       // All remaining stars must be in this one cell
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
         explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires ${ded.starsRequired} more star(s), and only one candidate cell remains.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
 
     // If maxStars is 0 and there are candidates, they must all be crosses
     if (ded.maxStars === 0 && emptyCandidates.length > 0) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-cross',
         technique: ded.technique,
         resultCells: emptyCandidates,
         explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} cannot have any more stars.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
 
     // If minStars equals remainingStars and there's only one candidate
@@ -228,13 +239,15 @@ function resolveAreaDeductions(
       remainingStars === ded.minStars &&
       emptyCandidates.length === 1
     ) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
         explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires at least ${ded.minStars} more star(s), and only one candidate cell remains.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
   }
 
@@ -296,35 +309,41 @@ function resolveBlockDeductions(
       ded.starsRequired > currentStars &&
       emptyBlockCells.length === 1
     ) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyBlockCells,
         explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) requires ${ded.starsRequired} star(s), and only one empty cell remains.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
 
     // If maxStars is 0 and there are empty cells, they must be crosses
     if (ded.maxStars === 0 && emptyBlockCells.length > 0) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-cross',
         technique: ded.technique,
         resultCells: emptyBlockCells,
         explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) cannot have any stars.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
 
     // If maxStars is 1 and we already have 1 star, remaining must be crosses
     if (ded.maxStars === 1 && currentStars === 1 && emptyBlockCells.length > 0) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-cross',
         technique: ded.technique,
         resultCells: emptyBlockCells,
         explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) can have at most 1 star, and already has 1.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
   }
 
@@ -355,24 +374,28 @@ function resolveExclusiveSetDeductions(
 
     // If only one empty cell left and we need one more star
     if (remainingStars === 1 && emptyCells.length === 1) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCells,
         explanation: `${ded.explanation || `Exclusive set requires ${ded.starsRequired} star(s), and only one candidate cell remains.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
 
     // If we have enough stars, remaining cells must be crosses
     if (currentStars === ded.starsRequired && emptyCells.length > 0) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-cross',
         technique: ded.technique,
         resultCells: emptyCells,
         explanation: `${ded.explanation || `Exclusive set already has ${ded.starsRequired} star(s).`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
   }
 
@@ -424,13 +447,15 @@ function resolveBoundsDeductions(
       emptyCandidates.length === ded.minStars
     ) {
       // All candidates must be stars
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
         explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires exactly ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
 
     // If minStars equals remainingStars and equals number of candidates
@@ -439,13 +464,15 @@ function resolveBoundsDeductions(
       ded.minStars === remainingStars &&
       emptyCandidates.length === ded.minStars
     ) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
         explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires at least ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
   }
 
@@ -495,13 +522,15 @@ function resolveAreaRelationDeductions(
     }
 
     if (remainingStars === 1 && allCandidates.length === 1) {
-      return {
+      const hint: Hint = {
         id: nextHintId(),
         kind: 'place-star',
         technique: relation.technique,
         resultCells: allCandidates,
         explanation: `${relation.explanation || `Area relation requires ${relation.totalStars} total stars, and only one candidate cell remains across all areas.`}`,
       };
+
+      return isHintConsistent(state, hint) ? hint : null;
     }
   }
 
@@ -547,13 +576,15 @@ function resolveCrossConstraints(
         // The exclusive set must contain all stars for this area
         // If there's only one cell in the exclusive set, it must be a star
         if (emptyExclusive.length === 1) {
-          return {
+          const hint: Hint = {
             id: nextHintId(),
             kind: 'place-star',
             technique: exclusive.technique,
             resultCells: emptyExclusive,
             explanation: `${exclusive.explanation || `Exclusive set within area requires exactly ${exclusive.starsRequired} star(s) in one candidate cell.`}`,
           };
+
+          return isHintConsistent(state, hint) ? hint : null;
         }
       }
     }
