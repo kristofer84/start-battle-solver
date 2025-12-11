@@ -10,6 +10,10 @@ import { solvePuzzle, countSolutions } from '../src/logic/search';
 import { validateState } from '../src/logic/validation';
 import { TEST_REGIONS } from './testBoard';
 
+function getRegionIds(regions: number[][]): number[] {
+  return Array.from(new Set(regions.flat()));
+}
+
 function makeDef(): PuzzleDef {
   return {
     size: DEFAULT_SIZE,
@@ -17,6 +21,37 @@ function makeDef(): PuzzleDef {
     regions: TEST_REGIONS,
   };
 }
+
+function parseRegionGrid(grid: string): number[][] {
+  const lines = grid.trim().split(/\r?\n/).map(line => line.trim());
+  if (lines.length !== DEFAULT_SIZE) {
+    throw new Error(`Expected ${DEFAULT_SIZE} rows, got ${lines.length}`);
+  }
+
+  const regions: number[][] = [];
+  for (let r = 0; r < DEFAULT_SIZE; r += 1) {
+    const tokens = lines[r].split(/\s+/).filter(token => token.length > 0);
+    if (tokens.length !== DEFAULT_SIZE) {
+      throw new Error(`Row ${r + 1} has ${tokens.length} entries`);
+    }
+    regions.push(tokens.map(token => parseInt(token, 10)));
+  }
+
+  return regions;
+}
+
+const USER_PROVIDED_REGIONS = parseRegionGrid(`
+0 0 0 0 0 1 1 1 1 1
+0 2 0 0 0 0 0 1 3 1
+0 2 2 0 0 4 4 3 3 1
+0 2 2 2 4 4 3 3 1 1
+0 0 2 2 4 4 3 3 8 1
+5 0 0 4 4 4 3 8 8 8
+5 6 0 4 7 7 3 3 3 8
+5 6 6 7 7 7 3 9 8 8
+5 6 6 6 6 7 7 9 8 8
+5 5 5 5 5 9 9 9 8 8
+`);
 
 describe('backtracking solver on test board', () => {
   it(
@@ -49,7 +84,7 @@ describe('backtracking solver on test board', () => {
       }
 
       // Exactly two stars per region.
-      for (let id = 1; id <= 10; id += 1) {
+      for (const id of getRegionIds(def.regions)) {
         let regStars = 0;
         for (let r = 0; r < def.size; r += 1) {
           for (let c = 0; c < def.size; c += 1) {
@@ -65,16 +100,76 @@ describe('backtracking solver on test board', () => {
   );
 });
 
+describe('backtracking solver on user-provided regions', () => {
+  it('solves a puzzle with zero-based region ids', () => {
+    const def: PuzzleDef = {
+      size: DEFAULT_SIZE,
+      starsPerUnit: DEFAULT_STARS_PER_UNIT,
+      regions: USER_PROVIDED_REGIONS,
+    };
+
+    const solution = solvePuzzle(def);
+    expect(solution).not.toBeNull();
+    if (!solution) return;
+
+    expect(validateState(solution)).toEqual([]);
+
+    for (let r = 0; r < def.size; r += 1) {
+      let rowStars = 0;
+      for (let c = 0; c < def.size; c += 1) {
+        if (solution.cells[r][c] === 'star') rowStars += 1;
+      }
+      expect(rowStars).toBe(def.starsPerUnit);
+    }
+
+    for (let c = 0; c < def.size; c += 1) {
+      let colStars = 0;
+      for (let r = 0; r < def.size; r += 1) {
+        if (solution.cells[r][c] === 'star') colStars += 1;
+      }
+      expect(colStars).toBe(def.starsPerUnit);
+    }
+
+    for (const id of getRegionIds(def.regions)) {
+      let regionStars = 0;
+      for (let r = 0; r < def.size; r += 1) {
+        for (let c = 0; c < def.size; c += 1) {
+          if (def.regions[r][c] === id && solution.cells[r][c] === 'star') {
+            regionStars += 1;
+          }
+        }
+      }
+      expect(regionStars).toBe(def.starsPerUnit);
+    }
+
+    const uniquenessCheck = countSolutions(solution, { maxCount: 2, timeoutMs: 2000 });
+    expect(uniquenessCheck.count).toBe(1);
+  });
+});
+
 describe('countSolutions', () => {
   it('counts 0 solutions for an impossible puzzle', () => {
     const def = makeDef();
     const state = createEmptyPuzzleState(def);
-    
+
     // Create an impossible state: place 3 stars in row 0
     state.cells[0][0] = 'star';
     state.cells[0][3] = 'star';
     state.cells[0][6] = 'star';
-    
+
+    const result = countSolutions(state, { timeoutMs: 1000 });
+    expect(result.count).toBe(0);
+    expect(result.timedOut).toBe(false);
+  });
+
+  it('rejects states that already violate adjacency', () => {
+    const def = makeDef();
+    const state = createEmptyPuzzleState(def);
+
+    // Two adjacent stars invalidate the puzzle immediately.
+    state.cells[0][0] = 'star';
+    state.cells[0][1] = 'star';
+
     const result = countSolutions(state, { timeoutMs: 1000 });
     expect(result.count).toBe(0);
     expect(result.timedOut).toBe(false);
