@@ -222,9 +222,10 @@ export function getAllSchemaApplications(state: PuzzleState): SchemaApplication[
 
   for (const schema of allSchemas) {
     try {
+      console.log(`[SCHEMA] ${schema.id} starting`);
       const t0 = performance.now();
       const applications = schema.apply(ctx);
-      console.log('[SCHEMA] ', schema.id, ' completed in ', (performance.now() - t0).toFixed(1), 'ms');
+      console.log(`[SCHEMA] ${schema.id} completed in ${(performance.now() - t0).toFixed(1)}ms`);
       allApplications.push(...applications);
     } catch (error) {
       console.warn(`Error applying schema ${schema.id}:`, error);
