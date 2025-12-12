@@ -12,6 +12,7 @@ export function solvePuzzle(def: PuzzleDef): PuzzleState | null {
 
   const size = def.size;
   const starsPerUnit = def.starsPerUnit;
+  const regionIds = Array.from(new Set(def.regions.flat()));
 
   // Column and region star counts accumulated as we go.
   const colCounts = new Array(size).fill(0);
@@ -36,7 +37,7 @@ export function solvePuzzle(def: PuzzleDef): PuzzleState | null {
       for (let c = 0; c < size; c += 1) {
         if (colCounts[c] !== starsPerUnit) return false;
       }
-      for (let id = 1; id <= 10; id += 1) {
+      for (const id of regionIds) {
         if ((regionCounts.get(id) ?? 0) !== starsPerUnit) return false;
       }
       return true;
@@ -158,6 +159,7 @@ export function countSolutions(
   const def = state.def;
   const size = def.size;
   const starsPerUnit = def.starsPerUnit;
+  const regionIds = Array.from(new Set(def.regions.flat()));
 
   // Start timing
   const startTime = Date.now();
@@ -178,6 +180,41 @@ export function countSolutions(
         colCounts[c]++;
         const regionId = def.regions[r][c];
         regionCounts.set(regionId, (regionCounts.get(regionId) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Bail out early if the provided state already violates quotas or adjacency.
+  for (let r = 0; r < size; r++) {
+    if (rowCounts[r] > starsPerUnit) {
+      return { count: 0, timedOut: false, cappedAtMax: false };
+    }
+  }
+  for (let c = 0; c < size; c++) {
+    if (colCounts[c] > starsPerUnit) {
+      return { count: 0, timedOut: false, cappedAtMax: false };
+    }
+  }
+  for (const id of regionIds) {
+    if ((regionCounts.get(id) ?? 0) > starsPerUnit) {
+      return { count: 0, timedOut: false, cappedAtMax: false };
+    }
+  }
+
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (cells[r][c] !== 'star') continue;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+            if (cells[nr][nc] === 'star') {
+              return { count: 0, timedOut: false, cappedAtMax: false };
+            }
+          }
+        }
       }
     }
   }
@@ -271,7 +308,7 @@ export function countSolutions(
       const needed = starsPerUnit - colCounts[c];
       if (needed > colEmptyCounts[c]) return false;
     }
-    for (let id = 1; id <= 10; id++) {
+    for (const id of regionIds) {
       const needed = starsPerUnit - (regionCounts.get(id) ?? 0);
       const available = regionEmptyCounts.get(id) ?? 0;
       if (needed > available) return false;
@@ -333,7 +370,7 @@ export function countSolutions(
         }
       }
       if (isValid) {
-        for (let id = 1; id <= 10; id++) {
+        for (const id of regionIds) {
           if ((regionCounts.get(id) ?? 0) !== starsPerUnit) {
             isValid = false;
             break;
