@@ -52,6 +52,31 @@ const showEntanglementViewer = ref(false);
 const selectedPatternId = ref<string | null>(null);
 const showTechniqueManager = ref(false);
 
+// Delayed visibility for thinking indicator to prevent flickering
+const showThinkingIndicator = ref(false);
+let thinkingTimeout: ReturnType<typeof setTimeout> | null = null;
+const MIN_THINKING_DISPLAY_MS = 300; // Minimum time to show indicator
+
+// Watch isThinking and manage delayed visibility
+watch(() => store.isThinking, (isThinking) => {
+  // Clear any existing timeout
+  if (thinkingTimeout) {
+    clearTimeout(thinkingTimeout);
+    thinkingTimeout = null;
+  }
+
+  if (isThinking) {
+    // Show immediately when thinking starts
+    showThinkingIndicator.value = true;
+  } else {
+    // Delay hiding to prevent flicker
+    thinkingTimeout = setTimeout(() => {
+      showThinkingIndicator.value = false;
+      thinkingTimeout = null;
+    }, MIN_THINKING_DISPLAY_MS);
+  }
+}, { immediate: true });
+
 const regionThemeOptions: Array<{ value: RegionTheme; label: string }> = [
   { value: 'default', label: 'Default' },
   { value: 'pastel', label: 'Pastel' },
@@ -406,6 +431,11 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  // Clean up thinking indicator timeout
+  if (thinkingTimeout) {
+    clearTimeout(thinkingTimeout);
+    thinkingTimeout = null;
+  }
   window.removeEventListener('keydown', handleKeyDown);
 });
 
@@ -624,13 +654,15 @@ watch(
           :result-cells="store.currentHint?.resultCells ?? []" :show-row-col-numbers="store.showRowColNumbers"
           :show-area-labels="store.showAreaLabels || !!store.currentHint" :violations="violations" mode="play"
           @cell-click="onCellClick" />
-        <div v-if="store.isThinking" class="thinking-indicator">
-          <div class="thinking-spinner"></div>
-          <span>
-            <template v-if="store.currentTechnique">Testing {{ store.currentTechnique }}...</template>
-            <template v-else>Looking for hint...</template>
-          </span>
-        </div>
+        <Transition name="thinking-fade">
+          <div v-if="showThinkingIndicator" class="thinking-indicator">
+            <div class="thinking-spinner"></div>
+            <span>
+              <template v-if="store.currentTechnique">Testing {{ store.currentTechnique }}...</template>
+              <template v-else>Looking for hint...</template>
+            </span>
+          </div>
+        </Transition>
         <div v-if="isPuzzleComplete(store.puzzle)" class="completion-status">
           Puzzle complete
         </div>
