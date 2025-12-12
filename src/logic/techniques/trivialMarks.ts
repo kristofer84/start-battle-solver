@@ -1,7 +1,7 @@
 import type { PuzzleState, Coords } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import type { TechniqueResult, Deduction, CellDeduction, AreaDeduction } from '../../types/deductions';
-import { rowCells, colCells, regionCells, emptyCells, neighbors8, countStars, formatRow, formatCol, formatRegion } from '../helpers';
+import { rowCells, colCells, regionCells, emptyCells, neighbors8, countStars, formatRow, formatCol, idToLetter } from '../helpers';
 
 let hintCounter = 0;
 
@@ -210,7 +210,7 @@ export function findTrivialMarksHint(state: PuzzleState): Hint | null {
         kind: 'place-cross',
         technique: 'trivial-marks',
         resultCells: safeCrosses,
-        explanation: `Region ${formatRegion(regionId)} already has ${starsPerUnit} stars, so all remaining empty cells in that region must be crosses.`,
+        explanation: `Region ${idToLetter(regionId)} already has ${starsPerUnit} stars, so all remaining empty cells in that region must be crosses.`,
         highlights: { regions: [regionId], cells: safeCrosses },
       };
     }
@@ -389,7 +389,7 @@ export function findTrivialMarksResult(state: PuzzleState): TechniqueResult {
           areaId: regionId,
           candidateCells: empties,
           maxStars: 0,
-          explanation: `Region ${formatRegion(regionId)} already has ${starsPerUnit} stars, so remaining cells must be crosses.`,
+          explanation: `Region ${idToLetter(regionId)} already has ${starsPerUnit} stars, so remaining cells must be crosses.`,
         });
       }
     }

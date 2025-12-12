@@ -1,7 +1,7 @@
 import type { PuzzleState } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import type { TechniqueResult, Deduction, AreaDeduction } from '../../types/deductions';
-import { rowCells, colCells, regionCells, emptyCells, countStars, neighbors8, formatRow, formatCol, formatRegion } from '../helpers';
+import { rowCells, colCells, regionCells, emptyCells, countStars, neighbors8, formatRow, formatCol, idToLetter } from '../helpers';
 
 let hintCounter = 0;
 
@@ -198,7 +198,7 @@ export function findExactFillHint(state: PuzzleState): Hint | null {
         kind: 'place-star',
         technique: 'exact-fill',
         resultCells: empties,
-        explanation: `Region ${formatRegion(regionId)} needs ${remaining} more star(s) and has exactly ${empties.length} empty cells left, so all of them must be stars.`,
+        explanation: `Region ${idToLetter(regionId)} needs ${remaining} more star(s) and has exactly ${empties.length} empty cells left, so all of them must be stars.`,
         highlights: { regions: [regionId], cells: empties },
       };
     }
@@ -267,7 +267,7 @@ export function findExactFillResult(state: PuzzleState): TechniqueResult {
         areaId: regionId,
         candidateCells: empties,
         starsRequired: remaining,
-        explanation: `Region ${formatRegion(regionId)} needs ${remaining} more star(s) and has exactly ${empties.length} empty cell(s), so all must be stars.`,
+        explanation: `Region ${idToLetter(regionId)} needs ${remaining} more star(s) and has exactly ${empties.length} empty cell(s), so all must be stars.`,
       });
     }
   }

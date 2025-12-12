@@ -7,11 +7,11 @@ import {
   formatCell,
   formatRowBand,
   formatColumnBand,
-  formatRegionQuota,
+  idToLetterQuota,
   formatBlock,
   formatGroup,
 } from './phrasing';
-import { formatRegion } from '../../helpers';
+import { idToLetter } from '../../helpers';
 
 /**
  * Render explanation instance to human-readable text
@@ -49,7 +49,7 @@ export function renderExplanation(
         const regions = step.entities.regions;
         if (Array.isArray(regions)) {
           const regionNames = regions.map((r: any) => {
-            if (r.name) return `region ${r.name} (${formatRegion(r.regionId)})`;
+            if (r.name) return `region ${r.name} (${idToLetter(r.regionId)})`;
             return formatGroup('region', `region_${r.regionId}`);
           }).join(' and ');
           const totalStars = step.entities.totalStars;
@@ -61,7 +61,7 @@ export function renderExplanation(
         } else if (step.entities.region) {
           const region = step.entities.region;
           const quota = step.entities.quota || step.entities.remainingStars;
-          lines.push(formatRegionQuota(region.regionId, quota));
+          lines.push(idToLetterQuota(region.regionId, quota));
         }
         break;
       }

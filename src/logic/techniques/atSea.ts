@@ -12,7 +12,7 @@ import {
   difference,
   formatRow,
   formatCol,
-  formatRegion
+  idToLetter
 } from '../helpers';
 
 let hintCounter = 0;
@@ -297,6 +297,6 @@ function formatUnitName(unitType: 'row' | 'col' | 'region', unitId: number): str
   } else if (unitType === 'col') {
     return formatCol(unitId);
   } else {
-    return `Region ${formatRegion(unitId)}`;
+    return `Region ${idToLetter(unitId)}`;
   }
 }

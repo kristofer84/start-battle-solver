@@ -1,7 +1,7 @@
 import type { PuzzleState, Coords } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import type { TechniqueResult, Deduction, AreaDeduction, CellDeduction } from '../../types/deductions';
-import { regionCells, findLShapes, findTShapes, neighbors8, getCell, countStars, emptyCells, formatRegion } from '../helpers';
+import { regionCells, findLShapes, findTShapes, neighbors8, getCell, countStars, emptyCells, idToLetter } from '../helpers';
 
 let hintCounter = 0;
 
@@ -65,7 +65,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
           technique: 'simple-shapes',
           resultCells: canPlaceAll,
           explanation:
-            `Region ${formatRegion(regionId)} is a 1×4 (or 4×1) strip and needs 2 more star(s) with exactly 2 empty cell(s), so both must be stars.`,
+            `Region ${idToLetter(regionId)} is a 1×4 (or 4×1) strip and needs 2 more star(s) with exactly 2 empty cell(s), so both must be stars.`,
           highlights: {
             regions: [regionId],
             cells: canPlaceAll,
@@ -149,7 +149,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
         technique: 'simple-shapes',
         resultCells: unique,
         explanation:
-          `Region ${formatRegion(regionId)} is a 1×4 (or 4×1) strip in a 10×10 2★ puzzle, so both of its stars must lie in the strip. The rest of the row/column and the cells directly next to the strip cannot contain stars and are crosses.`,
+          `Region ${idToLetter(regionId)} is a 1×4 (or 4×1) strip in a 10×10 2★ puzzle, so both of its stars must lie in the strip. The rest of the row/column and the cells directly next to the strip cannot contain stars and are crosses.`,
         highlights: {
           regions: [regionId],
           cells: [...cells, ...unique],
@@ -223,7 +223,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
             kind: 'place-star',
             technique: 'simple-shapes',
             resultCells: [vert1],
-            explanation: `Region ${formatRegion(lShape.regionId)} is an L-shape. The vertical arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
+            explanation: `Region ${idToLetter(lShape.regionId)} is an L-shape. The vertical arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
             highlights: {
               regions: [lShape.regionId],
               cells: [corner, vert0, vert1],
@@ -237,7 +237,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
             kind: 'place-star',
             technique: 'simple-shapes',
             resultCells: [vert0],
-            explanation: `Region ${formatRegion(lShape.regionId)} is an L-shape. The vertical arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
+            explanation: `Region ${idToLetter(lShape.regionId)} is an L-shape. The vertical arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
             highlights: {
               regions: [lShape.regionId],
               cells: [corner, vert0, vert1],
@@ -267,7 +267,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
             kind: 'place-star',
             technique: 'simple-shapes',
             resultCells: [horiz1],
-            explanation: `Region ${formatRegion(lShape.regionId)} is an L-shape. The horizontal arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
+            explanation: `Region ${idToLetter(lShape.regionId)} is an L-shape. The horizontal arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
             highlights: {
               regions: [lShape.regionId],
               cells: [corner, horiz0, horiz1],
@@ -281,7 +281,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
             kind: 'place-star',
             technique: 'simple-shapes',
             resultCells: [horiz0],
-            explanation: `Region ${formatRegion(lShape.regionId)} is an L-shape. The horizontal arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
+            explanation: `Region ${idToLetter(lShape.regionId)} is an L-shape. The horizontal arm cells are adjacent, and one is adjacent to the corner, so the far cell must be a star.`,
             highlights: {
               regions: [lShape.regionId],
               cells: [corner, horiz0, horiz1],
@@ -340,7 +340,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
         technique: 'simple-shapes',
         resultCells: unique,
           explanation:
-            `Region ${formatRegion(lShape.regionId)} is an L-shape in a 10×10 2★ puzzle, so both of its stars must lie in the L-shape. Using 2×2 constraints and exclusion, certain cells adjacent to the L-shape cannot contain stars and are crosses.`,
+            `Region ${idToLetter(lShape.regionId)} is an L-shape in a 10×10 2★ puzzle, so both of its stars must lie in the L-shape. Using 2×2 constraints and exclusion, certain cells adjacent to the L-shape cannot contain stars and are crosses.`,
         highlights: {
           regions: [lShape.regionId],
           cells: [...lShape.cells, ...unique],
@@ -372,7 +372,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
         technique: 'simple-shapes',
         resultCells: unique,
           explanation:
-            `Region ${formatRegion(tShape.regionId)} is a T-shape in a 10×10 2★ puzzle, so both of its stars must lie in the T-shape. Using 2×2 constraints, certain cells adjacent to the T-shape cannot contain stars and are crosses.`,
+            `Region ${idToLetter(tShape.regionId)} is a T-shape in a 10×10 2★ puzzle, so both of its stars must lie in the T-shape. Using 2×2 constraints, certain cells adjacent to the T-shape cannot contain stars and are crosses.`,
         highlights: {
           regions: [tShape.regionId],
           cells: [...tShape.cells, ...unique],
@@ -455,7 +455,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
             technique: 'simple-shapes',
             resultCells: unique,
               explanation:
-              `Region ${formatRegion(regionId)} is an S-shape in a 10×10 2★ puzzle, so both of its stars must lie in the S-shape. Using 2×2 constraints, certain cells adjacent to the S-shape cannot contain stars and are crosses.`,
+              `Region ${idToLetter(regionId)} is an S-shape in a 10×10 2★ puzzle, so both of its stars must lie in the S-shape. Using 2×2 constraints, certain cells adjacent to the S-shape cannot contain stars and are crosses.`,
             highlights: {
               regions: [regionId],
               cells: [...cells, ...unique],
@@ -501,7 +501,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
             technique: 'simple-shapes',
             resultCells: canPlaceAll,
             explanation:
-              `Region ${formatRegion(regionId)} needs ${regionRemaining} more star(s) and has exactly ${empties.length} empty cell(s), so all must be stars.`,
+              `Region ${idToLetter(regionId)} needs ${regionRemaining} more star(s) and has exactly ${empties.length} empty cell(s), so all must be stars.`,
             highlights: {
               regions: [regionId],
               cells: canPlaceAll,
@@ -529,7 +529,7 @@ export function findSimpleShapesHint(state: PuzzleState): Hint | null {
           technique: 'simple-shapes',
           resultCells: unique,
           explanation:
-            `Region ${formatRegion(regionId)} is a simple shape in a 10×10 2★ puzzle, so both of its stars must lie in the shape. Using 2×2 constraints, certain cells adjacent to the shape cannot contain stars and are crosses.`,
+            `Region ${idToLetter(regionId)} is a simple shape in a 10×10 2★ puzzle, so both of its stars must lie in the shape. Using 2×2 constraints, certain cells adjacent to the shape cannot contain stars and are crosses.`,
           highlights: {
             regions: [regionId],
             cells: [...cells, ...unique],
@@ -606,7 +606,7 @@ export function findSimpleShapesResult(state: PuzzleState): TechniqueResult {
         areaId: regionId,
         candidateCells: empties,
         starsRequired: regionRemaining,
-        explanation: `Region ${formatRegion(regionId)} is a simple shape and requires ${regionRemaining} more star(s) in ${empties.length} candidate cell(s).`,
+        explanation: `Region ${idToLetter(regionId)} is a simple shape and requires ${regionRemaining} more star(s) in ${empties.length} candidate cell(s).`,
       });
     }
 
@@ -625,7 +625,7 @@ export function findSimpleShapesResult(state: PuzzleState): TechniqueResult {
               technique: 'simple-shapes',
               cell: { row, col: c },
               type: 'forceEmpty',
-              explanation: `Cell outside 1×4 strip in region ${formatRegion(regionId)} must be empty.`,
+              explanation: `Cell outside 1×4 strip in region ${idToLetter(regionId)} must be empty.`,
             });
           }
         }
@@ -646,7 +646,7 @@ export function findSimpleShapesResult(state: PuzzleState): TechniqueResult {
               technique: 'simple-shapes',
               cell: { row: r, col },
               type: 'forceEmpty',
-              explanation: `Cell outside 4×1 strip in region ${formatRegion(regionId)} must be empty.`,
+              explanation: `Cell outside 4×1 strip in region ${idToLetter(regionId)} must be empty.`,
             });
           }
         }

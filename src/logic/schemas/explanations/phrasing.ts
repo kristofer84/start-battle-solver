@@ -3,14 +3,14 @@
  */
 
 import { cellIdToCoord } from '../model/types';
-import { formatRegion } from '../../helpers';
+import { idToLetter } from '../../helpers';
 
 /**
  * Format cell coordinates as "C3", "F4", etc.
  */
 export function formatCell(cellId: number, size: number): string {
   const coord = cellIdToCoord(cellId, size);
-  const rowLabel = String.fromCharCode(65 + coord.row); // A, B, C...
+  const rowLabel = idToLetter(coord.row); // A, B, C...
   const colLabel = (coord.col + 1).toString(); // 1, 2, 3...
   return `${rowLabel}${colLabel}`;
 }
@@ -41,7 +41,7 @@ export function formatColumnBand(cols: number[]): string {
  * Format region quota message
  */
 export function formatRegionQuota(regionId: number, quota: number): string {
-  return `region ${formatRegion(regionId)} must contain ${quota} star${quota !== 1 ? 's' : ''}`;
+  return `region ${idToLetter(regionId)} must contain ${quota} star${quota !== 1 ? 's' : ''}`;
 }
 
 /**
@@ -65,7 +65,7 @@ export function formatGroup(kind: string, id: string): string {
   }
   if (kind === 'region') {
     const regionId = parseInt(id.replace('region_', ''));
-    return `region ${formatRegion(regionId)}`;
+    return `region ${idToLetter(regionId)}`;
   }
   return `${kind} ${id}`;
 }

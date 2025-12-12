@@ -1,7 +1,7 @@
 import type { PuzzleState } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import type { TechniqueResult, Deduction, AreaDeduction } from '../../types/deductions';
-import { rowCells, colCells, regionCells, emptyCells, countStars, formatRow, formatCol, formatRegion } from '../helpers';
+import { rowCells, colCells, regionCells, emptyCells, countStars, formatRow, formatCol, idToLetter } from '../helpers';
 
 let hintCounter = 0;
 
@@ -73,7 +73,7 @@ export function findSaturationHint(state: PuzzleState): Hint | null {
           kind: 'place-cross',
           technique: 'saturation',
           resultCells: empties,
-          explanation: `Region ${formatRegion(regionId)} already has all ${starsPerUnit} star(s), so all remaining empty cells must be crosses.`,
+          explanation: `Region ${idToLetter(regionId)} already has all ${starsPerUnit} star(s), so all remaining empty cells must be crosses.`,
           highlights: { regions: [regionId], cells: empties },
         };
       }
@@ -143,7 +143,7 @@ export function findSaturationResult(state: PuzzleState): TechniqueResult {
           areaId: regionId,
           candidateCells: empties,
           maxStars: 0,
-          explanation: `Region ${formatRegion(regionId)} already has all ${starsPerUnit} star(s), so remaining cells must be crosses.`,
+          explanation: `Region ${idToLetter(regionId)} already has all ${starsPerUnit} star(s), so remaining cells must be crosses.`,
         });
       }
     }

@@ -2,6 +2,7 @@
 import type { PuzzleState, Coords } from '../types/puzzle';
 import type { HintHighlight } from '../types/hints';
 import type { RuleViolations } from '../logic/validation';
+import { idToLetter } from '../logic/helpers';
 
 const props = defineProps<{
   state: PuzzleState;
@@ -87,11 +88,6 @@ function getRegionBorderClasses(row: number, col: number): string[] {
   return classes;
 }
 
-function regionLabel(id: number): string {
-  // Regions are internally 0–9; display as A–J.
-  // 0 -> 'A', 1 -> 'B', ..., 9 -> 'J'
-  return String.fromCharCode(65 + id);
-}
 
 function hasRowViolation(row: number): boolean {
   return props.violations?.rows.has(row) ?? false;
@@ -217,7 +213,7 @@ function getCellClasses(row: number, col: number): string[] {
           <span v-else-if="state.cells[row - 1][col - 1] === 'cross'">×</span>
           <span v-else-if="props.mode === 'editor' || (props.mode === 'play' && props.showAreaLabels)" 
             :class="['cell-region-number', { 'cell-region-number-faded': props.mode === 'play' }]">
-            {{ regionLabel(cellRegionId(row - 1, col - 1)) }}
+            {{ idToLetter(cellRegionId(row - 1, col - 1)) }}
           </span>
         </div>
       </template>
@@ -257,7 +253,7 @@ function getCellClasses(row: number, col: number): string[] {
           :class="['cell-region-number', { 'cell-region-number-faded': props.mode === 'play' }]"
         >
           {{
-            regionLabel(
+            idToLetter(
               cellRegionId(
                 indexToCoords(index, state.def.size).row,
                 indexToCoords(index, state.def.size).col,

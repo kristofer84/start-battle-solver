@@ -11,7 +11,7 @@ import {
   neighbors8,
   formatRow,
   formatCol,
-  formatRegion,
+  idToLetter,
 } from '../helpers';
 import { logEntanglementDebug } from '../entanglements/debug';
 
@@ -660,7 +660,7 @@ function formatUnit(unit: ConstrainedUnit): string {
   } else if (unit.type === 'col') {
     return formatCol(unit.id).toLowerCase();
   } else {
-    return `region ${formatRegion(unit.id)}`;
+    return `region ${idToLetter(unit.id)}`;
   }
 }
 

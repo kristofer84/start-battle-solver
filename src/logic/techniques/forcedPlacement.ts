@@ -1,7 +1,7 @@
 import type { PuzzleState, Coords } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import type { TechniqueResult, Deduction, AreaDeduction } from '../../types/deductions';
-import { regionCells, rowCells, colCells, emptyCells, countStars, neighbors8, getCell, formatRegion } from '../helpers';
+import { regionCells, rowCells, colCells, emptyCells, countStars, neighbors8, getCell, idToLetter } from '../helpers';
 
 let hintCounter = 0;
 
@@ -233,7 +233,7 @@ export function findForcedPlacementHint(state: PuzzleState): Hint | null {
         kind: 'place-star',
         technique: 'forced-placement',
         resultCells: forcedCells,
-        explanation: `Region ${formatRegion(regionId)} needs ${remaining} star(s). All possible valid placements for these stars include ${forcedCells.length === 1 ? 'this cell' : 'these cells'}, so ${forcedCells.length === 1 ? 'it' : 'they'} must be ${forcedCells.length === 1 ? 'a star' : 'stars'}.`,
+        explanation: `Region ${idToLetter(regionId)} needs ${remaining} star(s). All possible valid placements for these stars include ${forcedCells.length === 1 ? 'this cell' : 'these cells'}, so ${forcedCells.length === 1 ? 'it' : 'they'} must be ${forcedCells.length === 1 ? 'a star' : 'stars'}.`,
         highlights: {
           regions: [regionId],
           cells: forcedCells,
@@ -297,7 +297,7 @@ export function findForcedPlacementResult(state: PuzzleState): TechniqueResult {
         areaId: regionId,
         candidateCells,
         minStars: remaining, // At least this many stars must be in these candidates
-        explanation: `Region ${formatRegion(regionId)} needs ${remaining} star(s), and only ${candidateCells.length} candidate cell(s) remain after filtering invalid placements.`,
+        explanation: `Region ${idToLetter(regionId)} needs ${remaining} star(s), and only ${candidateCells.length} candidate cell(s) remain after filtering invalid placements.`,
       });
     }
   }

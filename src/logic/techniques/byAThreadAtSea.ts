@@ -9,7 +9,7 @@ import {
   countStars,
   formatRow,
   formatCol,
-  formatRegion
+  idToLetter
 } from '../helpers';
 import { countSolutions } from '../search';
 
@@ -196,7 +196,7 @@ function checkIsolationContext(
     unitDescriptions.push(formatCol(isolatedUnits.cols[0]).toLowerCase());
   }
   if (isolatedUnits.regions.length > 0) {
-    unitDescriptions.push(`region ${formatRegion(isolatedUnits.regions[0])}`);
+    unitDescriptions.push(`region ${idToLetter(isolatedUnits.regions[0])}`);
   }
   
   return {

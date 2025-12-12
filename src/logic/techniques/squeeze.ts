@@ -10,7 +10,7 @@ import {
   intersection,
   formatRow,
   formatCol,
-  formatRegion,
+  idToLetter,
 } from '../helpers';
 import { canPlaceAllStarsSimultaneously, isValidStarPlacement } from '../constraints/placement';
 
@@ -72,7 +72,7 @@ export function findSqueezeHint(state: PuzzleState): Hint | null {
     const rowEmptyCells = emptyCells(state, row);
     const rowValidPlacements = rowEmptyCells.filter(cell => isValidStarPlacement(state, cell));
 
-    for (let regionId = 0; regionId < size; regionId += 1) {
+    for (let regionId = 1; regionId <= size; regionId += 1) {
       patternsChecked.rowRegion++;
       checksPerformed++;
       const region = regionCells(state, regionId);
@@ -120,7 +120,7 @@ export function findSqueezeHint(state: PuzzleState): Hint | null {
         }
         if (!safeCells) continue; // Can't place all stars, so this deduction doesn't apply
         
-        const explanation = `${formatRow(r)} needs ${rowRemaining} star(s) and region ${formatRegion(regionId)} needs ${regionRemaining} star(s). Due to crosses and 2×2 constraints, their intersection has only ${validPlacements.length} valid placement(s), so all must be stars.`;
+        const explanation = `${formatRow(r)} needs ${rowRemaining} star(s) and region ${idToLetter(regionId)} needs ${regionRemaining} star(s). Due to crosses and 2×2 constraints, their intersection has only ${validPlacements.length} valid placement(s), so all must be stars.`;
         
         return {
           id: nextHintId(),
@@ -151,7 +151,7 @@ export function findSqueezeHint(state: PuzzleState): Hint | null {
     const colEmptyCells = emptyCells(state, col);
     const colValidPlacements = colEmptyCells.filter(cell => isValidStarPlacement(state, cell));
 
-    for (let regionId = 0; regionId < size; regionId += 1) {
+    for (let regionId = 1; regionId <= size; regionId += 1) {
       patternsChecked.colRegion++;
       checksPerformed++;
       const region = regionCells(state, regionId);
@@ -199,7 +199,7 @@ export function findSqueezeHint(state: PuzzleState): Hint | null {
         }
         if (!safeCells) continue; // Can't place all stars, so this deduction doesn't apply
         
-        const explanation = `${formatCol(c)} needs ${colRemaining} star(s) and region ${formatRegion(regionId)} needs ${regionRemaining} star(s). Due to crosses and 2×2 constraints, their intersection has only ${validPlacements.length} valid placement(s), so all must be stars.`;
+        const explanation = `${formatCol(c)} needs ${colRemaining} star(s) and region ${idToLetter(regionId)} needs ${regionRemaining} star(s). Due to crosses and 2×2 constraints, their intersection has only ${validPlacements.length} valid placement(s), so all must be stars.`;
         
         return {
           id: nextHintId(),
@@ -313,7 +313,7 @@ export function findSqueezeHint(state: PuzzleState): Hint | null {
       const safeCells = canPlaceAllStarsSimultaneously(state, validPlacements, starsPerUnit);
       if (!safeCells) continue;
       
-      const explanation = `Region ${formatRegion(regionId)} needs ${regionRemaining} star(s). Due to crosses and 2×2 constraints, only ${validPlacements.length} cell(s) can contain stars, so all must be stars.`;
+      const explanation = `Region ${idToLetter(regionId)} needs ${regionRemaining} star(s). Due to crosses and 2×2 constraints, only ${validPlacements.length} cell(s) can contain stars, so all must be stars.`;
       
       return {
         id: nextHintId(),
@@ -374,7 +374,7 @@ export function findSqueezeResult(state: PuzzleState): TechniqueResult {
     const rowEmptyCells = emptyCells(state, row);
     const rowValidPlacements = rowEmptyCells.filter(cell => isValidStarPlacement(state, cell));
 
-    for (let regionId = 0; regionId < size; regionId += 1) {
+    for (let regionId = 1; regionId <= size; regionId += 1) {
       const region = regionCells(state, regionId);
       const regionStars = countStars(state, region);
       const regionRemaining = starsPerUnit - regionStars;
@@ -417,7 +417,7 @@ export function findSqueezeResult(state: PuzzleState): TechniqueResult {
             },
           ],
           totalStars: starsForced,
-          explanation: `The intersection of ${formatRow(r)} and region ${formatRegion(regionId)} must contain at least ${starsForced} star(s) due to spatial constraints squeezing valid placements.`,
+          explanation: `The intersection of ${formatRow(r)} and region ${idToLetter(regionId)} must contain at least ${starsForced} star(s) due to spatial constraints squeezing valid placements.`,
         });
       }
     }
@@ -433,7 +433,7 @@ export function findSqueezeResult(state: PuzzleState): TechniqueResult {
     const colEmptyCells = emptyCells(state, col);
     const colValidPlacements = colEmptyCells.filter(cell => isValidStarPlacement(state, cell));
 
-    for (let regionId = 0; regionId < size; regionId += 1) {
+    for (let regionId = 1; regionId <= size; regionId += 1) {
       const region = regionCells(state, regionId);
       const regionStars = countStars(state, region);
       const regionRemaining = starsPerUnit - regionStars;
@@ -476,7 +476,7 @@ export function findSqueezeResult(state: PuzzleState): TechniqueResult {
             },
           ],
           totalStars: starsForced,
-          explanation: `The intersection of ${formatCol(c)} and region ${formatRegion(regionId)} must contain at least ${starsForced} star(s) due to spatial constraints squeezing valid placements.`,
+          explanation: `The intersection of ${formatCol(c)} and region ${idToLetter(regionId)} must contain at least ${starsForced} star(s) due to spatial constraints squeezing valid placements.`,
         });
       }
     }

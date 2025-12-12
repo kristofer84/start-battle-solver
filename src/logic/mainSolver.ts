@@ -14,6 +14,7 @@ import {
   regionCells,
   emptyCells,
   countStars,
+  idToLetter,
 } from './helpers';
 import {
   filterValidDeductions,
@@ -27,6 +28,7 @@ function nextHintId() {
   hintCounter += 1;
   return `main-solver-${hintCounter}`;
 }
+
 
 /**
  * Analyze collected deductions and find a clear hint (100% certain)
@@ -207,7 +209,7 @@ function resolveAreaDeductions(
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires ${ded.starsRequired} more star(s), and only one candidate cell remains.`}`,
+        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires ${ded.starsRequired} more star(s), and only one candidate cell remains.`}`,
       };
     }
 
@@ -218,7 +220,7 @@ function resolveAreaDeductions(
         kind: 'place-cross',
         technique: ded.technique,
         resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} cannot have any more stars.`}`,
+        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} cannot have any more stars.`}`,
       };
     }
 
@@ -233,7 +235,7 @@ function resolveAreaDeductions(
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires at least ${ded.minStars} more star(s), and only one candidate cell remains.`}`,
+        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires at least ${ded.minStars} more star(s), and only one candidate cell remains.`}`,
       };
     }
   }
@@ -429,7 +431,7 @@ function resolveBoundsDeductions(
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires exactly ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
+        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires exactly ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
       };
     }
 
@@ -444,7 +446,7 @@ function resolveBoundsDeductions(
         kind: 'place-star',
         technique: ded.technique,
         resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${ded.areaId} requires at least ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
+        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires at least ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
       };
     }
   }

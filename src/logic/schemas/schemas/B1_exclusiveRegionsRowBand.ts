@@ -19,6 +19,7 @@ import {
   getRegionBandQuota,
   allHaveKnownBandQuota,
 } from '../helpers/bandHelpers';
+import { idToLetter } from '../../helpers';
 
 /**
  * Build B1 explanation with named regions
@@ -43,7 +44,7 @@ function buildB1Explanation(
         starsNeeded: band.rows.length * state.starsPerLine,
         note: 'Regions A, B, C, D cover the band',
         regions: allRegions.map((r, i) => ({
-          name: String.fromCharCode(65 + i), // A, B, C, D...
+          name: idToLetter(i), // A, B, C, D...
           regionId: r.id,
         })),
       },
@@ -55,7 +56,7 @@ function buildB1Explanation(
       kind: 'countRegionQuota' as const,
       entities: {
         regions: fullInside.map((r, i) => ({
-          name: String.fromCharCode(65 + i),
+          name: idToLetter(i),
           kind: 'region',
           regionId: r.id,
         })),
@@ -70,7 +71,7 @@ function buildB1Explanation(
       kind: 'countRegionQuota' as const,
       entities: {
         regions: otherPartial.map((r, i) => ({
-          name: String.fromCharCode(65 + fullInside.length + i),
+          name: idToLetter(fullInside.length + i),
           kind: 'region',
           regionId: r.id,
         })),
@@ -84,7 +85,7 @@ function buildB1Explanation(
     entities: {
       remainingStars: starsRemaining,
       targetRegion: {
-        name: String.fromCharCode(65 + fullInside.length + otherPartial.length),
+        name: idToLetter(fullInside.length + otherPartial.length),
         kind: 'region',
         regionId: target.id,
       },

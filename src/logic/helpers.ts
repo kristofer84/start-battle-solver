@@ -47,14 +47,16 @@ export function emptyCells(state: PuzzleState, cells: Coords[]): Coords[] {
 }
 
 /**
- * Format a region ID (0-9) as a letter (A-J) for display
+ * Convert a number (0-9) to a letter (A-J) for display
+ * This is the canonical implementation used throughout the codebase
  */
-export function formatRegion(regionId: number): string {
-  if (regionId < 0 || regionId > 9) {
-    return String(regionId);
+export function idToLetter(id: number): string {
+  if (id >= 0 && id <= 9) {
+    return String.fromCharCode(65 + id); // 'A' = 65, so 0→'A', 9→'J'
   }
-  return String.fromCharCode(65 + regionId); // 'A' = 65, so 0→'A', 9→'J'
+  return String(id);
 }
+
 
 /**
  * Format a row number (0-indexed) for display in explanations
@@ -75,13 +77,13 @@ export function formatCol(col: number): string {
  */
 export function formatRegions(regionIds: number[]): string {
   if (regionIds.length === 0) return '';
-  if (regionIds.length === 1) return `region ${formatRegion(regionIds[0])}`;
+  if (regionIds.length === 1) return `region ${idToLetter(regionIds[0])}`;
   if (regionIds.length === 2) {
-    return `regions ${formatRegion(regionIds[0])} and ${formatRegion(regionIds[1])}`;
+    return `regions ${idToLetter(regionIds[0])} and ${idToLetter(regionIds[1])}`;
   }
   const last = regionIds[regionIds.length - 1];
   const rest = regionIds.slice(0, -1);
-  return `regions ${rest.map(formatRegion).join(', ')}, and ${formatRegion(last)}`;
+  return `regions ${rest.map(idToLetter).join(', ')}, and ${idToLetter(last)}`;
 }
 
 export function neighbors8(coord: Coords, size: number): Coords[] {

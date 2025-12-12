@@ -1,5 +1,5 @@
 import type { PuzzleDef, PuzzleState } from '../types/puzzle';
-import { neighbors8, formatRow, formatCol, formatRegion } from './helpers';
+import { neighbors8, formatRow, formatCol, idToLetter } from './helpers';
 
 export function validateState(state: PuzzleState): string[] {
   const messages: string[] = [];
@@ -38,7 +38,7 @@ export function validateState(state: PuzzleState): string[] {
   }
   regionStarCounts.forEach((count, id) => {
     if (count > starsPerUnit) {
-      messages.push(`Region ${formatRegion(id)} has ${count} stars (maximum is ${starsPerUnit}).`);
+      messages.push(`Region ${idToLetter(id)} has ${count} stars (maximum is ${starsPerUnit}).`);
     }
   });
 
@@ -79,7 +79,7 @@ export function validateRegions(def: PuzzleDef): string[] {
 
   for (let id = 0; id <= 9; id += 1) {
     if (!seenRegionIds.has(id)) {
-      issues.push(`Region ${formatRegion(id)} does not appear anywhere on the board.`);
+      issues.push(`Region ${idToLetter(id)} does not appear anywhere on the board.`);
     }
   }
 

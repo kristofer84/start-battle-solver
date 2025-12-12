@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { idToLetter } from '../logic/helpers';
+
 const props = defineProps<{
   selectedId?: number;
 }>();
@@ -11,11 +13,6 @@ function onClick(id: number) {
   emit('selectRegion', id);
 }
 
-function regionLabel(id: number): string {
-  // Regions are internally 0–9; display as A–J for clarity.
-  // 0 -> 'A', 1 -> 'B', ..., 9 -> 'J'
-  return String.fromCharCode(65 + id);
-}
 </script>
 
 <template>
@@ -35,7 +32,7 @@ function regionLabel(id: number): string {
         ]"
         @click="onClick(id - 1)"
       >
-        {{ regionLabel(id - 1) }}
+        {{ idToLetter(id - 1) }}
       </button>
     </div>
   </div>

@@ -4,7 +4,7 @@ import type { TechniqueResult, Deduction, CellDeduction, AreaDeduction } from '.
 import {
   colCells,
   formatCol,
-  formatRegion,
+  idToLetter,
   formatRow,
   neighbors8,
   regionCells,
@@ -112,7 +112,7 @@ export function findLockedLineHint(state: PuzzleState): Hint | null {
         kind: 'place-cross',
         technique: 'locked-line',
         resultCells: crosses,
-        explanation: `All possible cells for region ${formatRegion(regionId)} are in ${formatRow(targetRow)}, so every other cell in that row must be a cross.`,
+        explanation: `All possible cells for region ${idToLetter(regionId)} are in ${formatRow(targetRow)}, so every other cell in that row must be a cross.`,
         highlights: { rows: [targetRow], regions: [regionId], cells: crosses },
       };
     }
@@ -133,7 +133,7 @@ export function findLockedLineHint(state: PuzzleState): Hint | null {
         kind: 'place-cross',
         technique: 'locked-line',
         resultCells: crosses,
-        explanation: `All possible cells for region ${formatRegion(regionId)} are in ${formatCol(targetCol)}, so every other cell in that column must be a cross.`,
+        explanation: `All possible cells for region ${idToLetter(regionId)} are in ${formatCol(targetCol)}, so every other cell in that column must be a cross.`,
         highlights: { cols: [targetCol], regions: [regionId], cells: crosses },
       };
     }
@@ -180,7 +180,7 @@ export function findLockedLineResult(state: PuzzleState): TechniqueResult {
           areaId: regionId,
           candidateCells: viableCells,
           starsRequired: needsStars,
-          explanation: `All possible cells for region ${formatRegion(regionId)} are in ${formatRow(targetRow)}.`,
+          explanation: `All possible cells for region ${idToLetter(regionId)} are in ${formatRow(targetRow)}.`,
         });
 
         // Emit cell deductions for cells that must be crosses
@@ -190,7 +190,7 @@ export function findLockedLineResult(state: PuzzleState): TechniqueResult {
             technique: 'locked-line',
             cell: cross,
             type: 'forceEmpty',
-            explanation: `Cell in ${formatRow(targetRow)} outside region ${formatRegion(regionId)} must be empty.`,
+            explanation: `Cell in ${formatRow(targetRow)} outside region ${idToLetter(regionId)} must be empty.`,
           });
         }
       }
@@ -214,7 +214,7 @@ export function findLockedLineResult(state: PuzzleState): TechniqueResult {
           areaId: regionId,
           candidateCells: viableCells,
           starsRequired: needsStars,
-          explanation: `All possible cells for region ${formatRegion(regionId)} are in ${formatCol(targetCol)}.`,
+          explanation: `All possible cells for region ${idToLetter(regionId)} are in ${formatCol(targetCol)}.`,
         });
 
         // Emit cell deductions for cells that must be crosses
@@ -224,7 +224,7 @@ export function findLockedLineResult(state: PuzzleState): TechniqueResult {
             technique: 'locked-line',
             cell: cross,
             type: 'forceEmpty',
-            explanation: `Cell in ${formatCol(targetCol)} outside region ${formatRegion(regionId)} must be empty.`,
+            explanation: `Cell in ${formatCol(targetCol)} outside region ${idToLetter(regionId)} must be empty.`,
           });
         }
       }

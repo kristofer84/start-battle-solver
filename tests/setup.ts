@@ -1,5 +1,8 @@
 import { beforeEach } from "vitest";
 
+console.log = (... params: any) => {};
+console.warn = (... params: any) => {};
+
 // Polyfill requestAnimationFrame for jsdom (it may not be available or may hang in test environment)
 // Always use setTimeout-based implementation in tests to avoid hanging
 if (typeof window !== 'undefined') {

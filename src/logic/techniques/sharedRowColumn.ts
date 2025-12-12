@@ -1,7 +1,7 @@
 import type { PuzzleState, Coords } from '../../types/puzzle';
 import type { Hint } from '../../types/hints';
 import type { TechniqueResult, Deduction, CellDeduction } from '../../types/deductions';
-import { regionCells, rowCells, colCells, emptyCells, countStars, neighbors8, getCell, formatRow, formatCol, formatRegion, formatRegions } from '../helpers';
+import { regionCells, rowCells, colCells, emptyCells, countStars, neighbors8, getCell, formatRow, formatCol, formatRegions } from '../helpers';
 
 let hintCounter = 0;
 

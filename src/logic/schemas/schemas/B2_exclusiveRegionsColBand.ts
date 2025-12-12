@@ -17,6 +17,7 @@ import {
   getRegionBandQuota,
   allHaveKnownBandQuota,
 } from '../helpers/bandHelpers';
+import { idToLetter } from '../../helpers';
 
 /**
  * Build B2 explanation with named regions (symmetric to B1)
@@ -41,7 +42,7 @@ function buildB2Explanation(
         starsNeeded: band.cols.length * state.starsPerLine,
         note: 'Regions A, B, C, D cover the band',
         regions: allRegions.map((r, i) => ({
-          name: String.fromCharCode(65 + i),
+          name: idToLetter(i),
           regionId: r.id,
         })),
       },
@@ -53,7 +54,7 @@ function buildB2Explanation(
       kind: 'countRegionQuota' as const,
       entities: {
         regions: fullInside.map((r, i) => ({
-          name: String.fromCharCode(65 + i),
+          name: idToLetter(i),
           kind: 'region',
           regionId: r.id,
         })),
@@ -68,7 +69,7 @@ function buildB2Explanation(
       kind: 'countRegionQuota' as const,
       entities: {
         regions: otherPartial.map((r, i) => ({
-          name: String.fromCharCode(65 + fullInside.length + i),
+          name: idToLetter(fullInside.length + i),
           kind: 'region',
           regionId: r.id,
         })),
@@ -82,7 +83,7 @@ function buildB2Explanation(
     entities: {
       remainingStars: starsRemaining,
       targetRegion: {
-        name: String.fromCharCode(65 + fullInside.length + otherPartial.length),
+        name: idToLetter(fullInside.length + otherPartial.length),
         kind: 'region',
         regionId: target.id,
       },
