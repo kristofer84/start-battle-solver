@@ -420,3 +420,298 @@ export function countSolutions(
   };
 }
 
+/**
+ * Async/cooperative variant of countSolutions().
+ *
+ * - Periodically yields to the browser so the UI can paint (via rAF when available).
+ * - Supports cancellation via AbortSignal.
+ *
+ * This is intended for interactive UI flows (schema forcedness verification, etc.).
+ */
+export interface CountSolutionsAsyncOptions extends CountSolutionsOptions {
+  signal?: AbortSignal;
+  /** Minimum time between yields (ms). Default: 16 (≈ 1 frame). */
+  yieldEveryMs?: number;
+}
+
+export interface CountSolutionsAsyncResult extends CountSolutionsResult {
+  aborted: boolean;
+}
+
+function yieldToBrowser(): Promise<void> {
+  if (typeof requestAnimationFrame === 'function') {
+    return new Promise(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+  }
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+export async function countSolutionsAsync(
+  state: PuzzleState,
+  options: CountSolutionsAsyncOptions = {}
+): Promise<CountSolutionsAsyncResult> {
+  const {
+    maxCount = Infinity,
+    timeoutMs = 2000,
+    maxDepth = Infinity,
+    signal,
+    yieldEveryMs = 16,
+  } = options;
+
+  const def = state.def;
+  const size = def.size;
+  const starsPerUnit = def.starsPerUnit;
+  const regionIds = Array.from(new Set(def.regions.flat()));
+
+  const startTime = Date.now();
+  let lastYieldTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  let timedOut = false;
+  let aborted = false;
+  let solutionCount = 0;
+
+  const cells: CellState[][] = state.cells.map(row => [...row]);
+  const rowCounts = new Array(size).fill(0);
+  const colCounts = new Array(size).fill(0);
+  const regionCounts = new Map<number, number>();
+
+  // Initialize counts from existing state
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (cells[r][c] === 'star') {
+        rowCounts[r]++;
+        colCounts[c]++;
+        const regionId = def.regions[r][c];
+        regionCounts.set(regionId, (regionCounts.get(regionId) ?? 0) + 1);
+      }
+    }
+  }
+
+  // Early bail if already invalid.
+  for (let r = 0; r < size; r++) {
+    if (rowCounts[r] > starsPerUnit) {
+      return { count: 0, timedOut: false, cappedAtMax: false, aborted: false };
+    }
+  }
+  for (let c = 0; c < size; c++) {
+    if (colCounts[c] > starsPerUnit) {
+      return { count: 0, timedOut: false, cappedAtMax: false, aborted: false };
+    }
+  }
+  for (const id of regionIds) {
+    if ((regionCounts.get(id) ?? 0) > starsPerUnit) {
+      return { count: 0, timedOut: false, cappedAtMax: false, aborted: false };
+    }
+  }
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (cells[r][c] !== 'star') continue;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (dr === 0 && dc === 0) continue;
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+            if (cells[nr][nc] === 'star') {
+              return { count: 0, timedOut: false, cappedAtMax: false, aborted: false };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const emptyCells: Coords[] = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (cells[r][c] === 'empty') {
+        emptyCells.push({ row: r, col: c });
+      }
+    }
+  }
+
+  function canPlaceStar(row: number, col: number): boolean {
+    if (rowCounts[row] >= starsPerUnit) return false;
+    if (colCounts[col] >= starsPerUnit) return false;
+    const regionId = def.regions[row][col];
+    if ((regionCounts.get(regionId) ?? 0) >= starsPerUnit) return false;
+
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = row + dr;
+        const nc = col + dc;
+        if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+          if (cells[nr][nc] === 'star') return false;
+        }
+      }
+    }
+
+    for (let dr = -1; dr <= 0; dr++) {
+      for (let dc = -1; dc <= 0; dc++) {
+        const r0 = row + dr;
+        const c0 = col + dc;
+        if (r0 >= 0 && r0 < size - 1 && c0 >= 0 && c0 < size - 1) {
+          let hasStarInBlock = false;
+          for (let br = 0; br < 2; br++) {
+            for (let bc = 0; bc < 2; bc++) {
+              const checkRow = r0 + br;
+              const checkCol = c0 + bc;
+              if (checkRow === row && checkCol === col) continue;
+              if (cells[checkRow][checkCol] === 'star') {
+                hasStarInBlock = true;
+                break;
+              }
+            }
+            if (hasStarInBlock) break;
+          }
+          if (hasStarInBlock) return false;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  function canReachSolution(): boolean {
+    const rowEmptyCounts = new Array(size).fill(0);
+    const colEmptyCounts = new Array(size).fill(0);
+    const regionEmptyCounts = new Map<number, number>();
+
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (cells[r][c] === 'empty') {
+          rowEmptyCounts[r]++;
+          colEmptyCounts[c]++;
+          const regionId = def.regions[r][c];
+          regionEmptyCounts.set(regionId, (regionEmptyCounts.get(regionId) ?? 0) + 1);
+        }
+      }
+    }
+
+    for (let r = 0; r < size; r++) {
+      const needed = starsPerUnit - rowCounts[r];
+      if (needed > rowEmptyCounts[r]) return false;
+    }
+    for (let c = 0; c < size; c++) {
+      const needed = starsPerUnit - colCounts[c];
+      if (needed > colEmptyCounts[c]) return false;
+    }
+    for (const id of regionIds) {
+      const needed = starsPerUnit - (regionCounts.get(id) ?? 0);
+      const available = regionEmptyCounts.get(id) ?? 0;
+      if (needed > available) return false;
+    }
+
+    return true;
+  }
+
+  let nodesVisited = 0;
+
+  async function maybeYield(): Promise<void> {
+    if (signal?.aborted) {
+      aborted = true;
+      timedOut = true; // treat as "stop now"
+      return;
+    }
+    if (yieldEveryMs <= 0) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - lastYieldTime >= yieldEveryMs) {
+      await yieldToBrowser();
+      lastYieldTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    }
+  }
+
+  async function search(depth: number): Promise<void> {
+    if (signal?.aborted) {
+      aborted = true;
+      timedOut = true;
+      return;
+    }
+    if (Date.now() - startTime > timeoutMs) {
+      timedOut = true;
+      return;
+    }
+    if (depth > maxDepth) return;
+    if (solutionCount >= maxCount) return;
+    if (!canReachSolution()) return;
+
+    nodesVisited++;
+    if ((nodesVisited & 0x3ff) === 0) {
+      await maybeYield();
+      if (timedOut) return;
+    }
+
+    let nextCell: Coords | null = null;
+    for (const cell of emptyCells) {
+      if (cells[cell.row][cell.col] === 'empty') {
+        nextCell = cell;
+        break;
+      }
+    }
+
+    if (nextCell === null) {
+      let isValid = true;
+      for (let r = 0; r < size; r++) {
+        if (rowCounts[r] !== starsPerUnit) {
+          isValid = false;
+          break;
+        }
+      }
+      if (isValid) {
+        for (let c = 0; c < size; c++) {
+          if (colCounts[c] !== starsPerUnit) {
+            isValid = false;
+            break;
+          }
+        }
+      }
+      if (isValid) {
+        for (const id of regionIds) {
+          if ((regionCounts.get(id) ?? 0) !== starsPerUnit) {
+            isValid = false;
+            break;
+          }
+        }
+      }
+      if (isValid) {
+        solutionCount++;
+      }
+      return;
+    }
+
+    const { row, col } = nextCell;
+
+    if (canPlaceStar(row, col)) {
+      cells[row][col] = 'star';
+      rowCounts[row]++;
+      colCounts[col]++;
+      const regionId = def.regions[row][col];
+      regionCounts.set(regionId, (regionCounts.get(regionId) ?? 0) + 1);
+
+      await search(depth + 1);
+
+      cells[row][col] = 'empty';
+      rowCounts[row]--;
+      colCounts[col]--;
+      regionCounts.set(regionId, (regionCounts.get(regionId) ?? 0) - 1);
+      if (timedOut || solutionCount >= maxCount) return;
+    }
+
+    if (!timedOut && solutionCount < maxCount) {
+      cells[row][col] = 'cross';
+      await search(depth + 1);
+      cells[row][col] = 'empty';
+    }
+  }
+
+  await search(0);
+
+  return {
+    count: solutionCount,
+    timedOut,
+    cappedAtMax: solutionCount >= maxCount && !timedOut,
+    aborted,
+  };
+}
+

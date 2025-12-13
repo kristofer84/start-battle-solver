@@ -256,6 +256,7 @@ export async function findNextHint(state: PuzzleState): Promise<Hint | null> {
   const startTime = performance.now();
   const testedTechniques: Array<{ technique: string; timeMs: number }> = [];
   let accumulatedDeductions: Deduction[] = [];
+  const signal = store.solveAbortController?.signal ?? null;
   
   // Maximum total time allowed for finding a hint (30 seconds)
   const MAX_TOTAL_TIME_MS = 30000;
@@ -270,7 +271,13 @@ export async function findNextHint(state: PuzzleState): Promise<Hint | null> {
   await new Promise(resolve => setTimeout(resolve, 0));
 
   try {
+    if (signal?.aborted) {
+      return null;
+    }
     for (const tech of techniquesInOrder) {
+      if (signal?.aborted) {
+        return null;
+      }
       // Check if we've exceeded total time limit
       const elapsedTotal = performance.now() - startTime;
       if (elapsedTotal > MAX_TOTAL_TIME_MS) {
@@ -293,6 +300,9 @@ export async function findNextHint(state: PuzzleState): Promise<Hint | null> {
           requestAnimationFrame(resolve);
         });
       });
+      if (signal?.aborted) {
+        return null;
+      }
 
       // Log start of technique
       console.log(`[DEBUG] Starting ${tech.name}...`);
@@ -312,6 +322,10 @@ export async function findNextHint(state: PuzzleState): Promise<Hint | null> {
           // Handle both sync and async hints
           const hint = hintOrPromise instanceof Promise ? await hintOrPromise : hintOrPromise;
           result = wrapOldTechniqueResult(hint, tech.id);
+        }
+
+        if (signal?.aborted) {
+          return null;
         }
         
         // Check if technique took too long

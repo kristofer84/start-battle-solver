@@ -50,6 +50,10 @@ interface StoreState {
   isThinking: boolean;
   currentTechnique: string | null;
   disabledTechniques: TechniqueId[];
+  // Cooperative cancellation for long-running solver work (hint / schema / trySolve).
+  solveAbortController: AbortController | null;
+  // True while "Try solve" loop is running (even between hint searches).
+  isAutoSolving: boolean;
 }
 
 const STORAGE_KEY = 'star-battle-10x10-v1';
@@ -167,7 +171,44 @@ export const store = reactive<StoreState>({
   isThinking: false,
   currentTechnique: null,
   disabledTechniques: uiState.disabledTechniques || [],
+  solveAbortController: null,
+  isAutoSolving: false,
 });
+
+/**
+ * Start a new cooperative-cancellation scope for solver work.
+ * Aborts any previous in-flight work.
+ */
+export function beginSolveRun(): AbortSignal {
+  // Abort any previous run first (best effort).
+  try {
+    store.solveAbortController?.abort();
+  } catch {
+    // ignore
+  }
+
+  // Create a new controller for this run.
+  store.solveAbortController = new AbortController();
+  return store.solveAbortController.signal;
+}
+
+/**
+ * Request the currently running solver work to stop as soon as it reaches a safe checkpoint.
+ */
+export function stopSolveRun(): void {
+  try {
+    store.solveAbortController?.abort();
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Access the active solve signal (if any).
+ */
+export function getSolveSignal(): AbortSignal | null {
+  return store.solveAbortController?.signal ?? null;
+}
 
 // Initialize theme on load
 if (typeof document !== 'undefined') {

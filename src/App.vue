@@ -35,6 +35,8 @@ import {
   enableAllTechniques,
   isTechniqueEnabled,
   addLogEntry,
+  beginSolveRun,
+  stopSolveRun,
   type RegionTheme,
 } from './store/puzzleStore';
 import { setupConsoleInterceptor } from './utils/consoleInterceptor';
@@ -254,24 +256,37 @@ function onPatternClick(patternId: string) {
 }
 
 async function requestHint() {
+  const signal = beginSolveRun();
   // Set thinking state immediately so UI can update
   store.isThinking = true;
   store.currentTechnique = null;
 
   // Allow Vue to update the DOM
   await nextTick();
+  if (signal.aborted) {
+    store.isThinking = false;
+    store.currentTechnique = null;
+    return;
+  }
   // Wait for browser to paint the spinner
   await new Promise(resolve => {
     requestAnimationFrame(() => {
       setTimeout(resolve, 100); // Give enough time for spinner to be visible
     });
   });
+  if (signal.aborted) {
+    store.isThinking = false;
+    store.currentTechnique = null;
+    return;
+  }
 
   // Now call findNextHint (it will manage isThinking from here)
   const hint = await findNextHint(store.puzzle);
   store.currentHint = hint;
   if (!hint) {
-    store.issues = ['No further logical hint found with current techniques.'];
+    store.issues = signal.aborted
+      ? ['Stopped.']
+      : ['No further logical hint found with current techniques.'];
   } else {
     store.issues = [];
   }
@@ -285,13 +300,32 @@ function applyHint() {
 
 async function trySolve() {
   if (store.mode !== 'play') return;
+  const signal = beginSolveRun();
+  store.isAutoSolving = true;
 
   const startTime = performance.now();
   const maxIterations = 500; // Safety limit
   let iteration = 0;
   let hintsApplied = 0;
 
-  while (iteration < maxIterations) {
+  try {
+    while (iteration < maxIterations) {
+      if (signal.aborted) {
+        const endTime = performance.now();
+        const totalTimeMs = endTime - startTime;
+
+        addLogEntry({
+          timestamp: Date.now(),
+          technique: 'Try Solve',
+          timeMs: totalTimeMs,
+          message: `Stopped: User cancelled. Applied ${hintsApplied} step${hintsApplied !== 1 ? 's' : ''} (${totalTimeMs.toFixed(2)}ms total)`,
+          testedTechniques: [],
+        });
+
+        store.currentHint = null;
+        store.issues = ['Stopped.'];
+        return;
+      }
     // Check if puzzle is already complete
     if (isPuzzleComplete(store.puzzle)) {
       const endTime = performance.now();
@@ -328,7 +362,9 @@ async function trySolve() {
       });
 
       store.currentHint = null;
-      store.issues = ['No further logical hint found with current techniques.'];
+      store.issues = signal.aborted
+        ? ['Stopped.']
+        : ['No further logical hint found with current techniques.'];
       return;
     }
 
@@ -362,8 +398,10 @@ async function trySolve() {
       return;
     }
 
-    // Small delay to allow UI to update
-    await new Promise(resolve => setTimeout(resolve, 10));
+    // Yield to allow UI to update (prefer rAF so the browser can paint).
+    await new Promise(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
 
     iteration++;
   }
@@ -383,6 +421,13 @@ async function trySolve() {
 
   store.currentHint = null;
   store.issues = ['Reached maximum iterations. Puzzle may be unsolvable with current techniques.'];
+  } finally {
+    store.isAutoSolving = false;
+  }
+}
+
+function stopSolve() {
+  stopSolveRun();
 }
 
 function clearBoard() {
@@ -623,7 +668,7 @@ watch(
         :show-row-col-numbers="store.showRowColNumbers" :show-area-labels="store.showAreaLabels" :can-undo="canUndo()"
         :can-redo="canRedo()" :region-theme="store.regionTheme" :theme-options="regionThemeOptions"
         @change-mode="onChangeMode" @change-selection="onChangeSelection" @request-hint="requestHint"
-        @apply-hint="applyHint" @try-solve="trySolve" @clear="clearBoard"
+        @apply-hint="applyHint" @try-solve="trySolve" @stop-solve="stopSolve" @clear="clearBoard"
         @toggle-row-col-numbers="() => setShowRowColNumbers(!store.showRowColNumbers)"
         @toggle-area-labels="() => setShowAreaLabels(!store.showAreaLabels)" @undo="handleUndo" @redo="handleRedo"
         @change-theme="onChangeTheme" />

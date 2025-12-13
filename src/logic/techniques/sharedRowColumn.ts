@@ -194,7 +194,10 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
     if (starsInRow > 0) {
       // Case 1: Row already has a star
       // X out all other cells in the row (except cells in regions with confined placements)
-      const regionIds = new Set(confinedRegions.map(reg => reg.regionId));
+      // Per technique definition: once we find a confined placement for *an* area,
+      // we keep that area and cross everything else in the unit.
+      const selectedRegions = confinedRegions.slice(0, 1);
+      const regionIds = new Set(selectedRegions.map(reg => reg.regionId));
       const crosses = rowCellsList.filter(cell => {
         const cellRegionId = state.def.regions[cell.row][cell.col];
         return !regionIds.has(cellRegionId) && 
@@ -203,7 +206,7 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
       
       if (crosses.length > 0) {
         forcedCrosses = crosses;
-        highlightRegions = confinedRegions.map(reg => reg.regionId);
+        highlightRegions = selectedRegions.map(reg => reg.regionId);
         // Get actual placement cells for highlighting (cells in the row from confined regions)
         const placementCellsInRow = rowCellsList.filter((cell: Coords) => {
           const cellRegionId = state.def.regions[cell.row][cell.col];
@@ -226,7 +229,9 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
       // If there are 2+ regions with confined placements, X out all other cells
       // (except cells in those regions)
       if (confinedRegions.length >= 2) {
-        const regionIds = new Set(confinedRegions.map(reg => reg.regionId));
+        // Keep exactly two areas that each force a star into this unit.
+        const selectedRegions = confinedRegions.slice(0, 2);
+        const regionIds = new Set(selectedRegions.map(reg => reg.regionId));
         const crosses = rowCellsList.filter(cell => {
           const cellRegionId = state.def.regions[cell.row][cell.col];
           return !regionIds.has(cellRegionId) && 
@@ -235,7 +240,7 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
         
         if (crosses.length > 0) {
           forcedCrosses = crosses;
-          highlightRegions = confinedRegions.map(reg => reg.regionId);
+          highlightRegions = selectedRegions.map(reg => reg.regionId);
           // Get actual placement cells for highlighting (cells in the row from confined regions)
           const placementCellsInRow = rowCellsList.filter((cell: Coords) => {
             const cellRegionId = state.def.regions[cell.row][cell.col];
@@ -288,7 +293,8 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
     if (starsInCol > 0) {
       // Case 1: Column already has a star
       // X out all other cells in the column (except cells in regions with confined placements)
-      const regionIds = new Set(confinedRegions.map(reg => reg.regionId));
+      const selectedRegions = confinedRegions.slice(0, 1);
+      const regionIds = new Set(selectedRegions.map(reg => reg.regionId));
       const crosses = colCellsList.filter(cell => {
         const cellRegionId = state.def.regions[cell.row][cell.col];
         return !regionIds.has(cellRegionId) && 
@@ -297,7 +303,7 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
       
       if (crosses.length > 0) {
         forcedCrosses = crosses;
-        highlightRegions = confinedRegions.map(reg => reg.regionId);
+        highlightRegions = selectedRegions.map(reg => reg.regionId);
         // Get actual placement cells for highlighting (cells in the column from confined regions)
         const placementCellsInCol = colCellsList.filter((cell: Coords) => {
           const cellRegionId = state.def.regions[cell.row][cell.col];
@@ -320,7 +326,8 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
       // If there are 2+ regions with confined placements, X out all other cells
       // (except cells in those regions)
       if (confinedRegions.length >= 2) {
-        const regionIds = new Set(confinedRegions.map(reg => reg.regionId));
+        const selectedRegions = confinedRegions.slice(0, 2);
+        const regionIds = new Set(selectedRegions.map(reg => reg.regionId));
         const crosses = colCellsList.filter(cell => {
           const cellRegionId = state.def.regions[cell.row][cell.col];
           return !regionIds.has(cellRegionId) && 
@@ -329,7 +336,7 @@ export function findSharedRowColumnHint(state: PuzzleState): Hint | null {
         
         if (crosses.length > 0) {
           forcedCrosses = crosses;
-          highlightRegions = confinedRegions.map(reg => reg.regionId);
+          highlightRegions = selectedRegions.map(reg => reg.regionId);
           // Get actual placement cells for highlighting (cells in the column from confined regions)
           const placementCellsInCol = colCellsList.filter((cell: Coords) => {
             const cellRegionId = state.def.regions[cell.row][cell.col];

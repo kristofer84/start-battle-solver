@@ -147,6 +147,7 @@ export async function findBestSchemaApplication(
   const schemaApplicationCounts: Record<string, number> = {};
   let totalSchemasChecked = 0;
   const HARD_BUDGET_MS = 30;
+  const signal = store.solveAbortController?.signal ?? null;
 
   // Clear packing cache at start of each schema application
   // (state has changed, so previous cache entries are invalid)
@@ -169,6 +170,10 @@ export async function findBestSchemaApplication(
   const originalTechnique = store.currentTechnique;
 
   for (const schema of allSchemas) {
+    if (signal?.aborted) {
+      store.currentTechnique = originalTechnique;
+      return null;
+    }
     totalSchemasChecked++;
     const schemaStartTime = performance.now();
     
@@ -182,6 +187,10 @@ export async function findBestSchemaApplication(
           requestAnimationFrame(resolve);
         });
       });
+    }
+    if (signal?.aborted) {
+      store.currentTechnique = originalTechnique;
+      return null;
     }
     
     try {
@@ -241,11 +250,15 @@ export async function getAllSchemaApplications(state: PuzzleState): Promise<Sche
   const ctx: SchemaContext = { state: boardState };
   const allSchemas = getAllSchemas();
   const allApplications: SchemaApplication[] = [];
+  const signal = store.solveAbortController?.signal ?? null;
 
   // Store original technique name to restore later
   const originalTechnique = store.currentTechnique;
 
   for (const schema of allSchemas) {
+    if (signal?.aborted) {
+      break;
+    }
     try {
       // Update UI to show current schema being tested
       store.currentTechnique = `Schema: ${schema.id}`;
@@ -256,6 +269,9 @@ export async function getAllSchemaApplications(state: PuzzleState): Promise<Sche
           requestAnimationFrame(resolve);
         });
       });
+      if (signal?.aborted) {
+        break;
+      }
 
       console.log(`[SCHEMA] ${schema.id} starting`);
       const t0 = performance.now();

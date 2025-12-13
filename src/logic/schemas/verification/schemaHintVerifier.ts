@@ -1,7 +1,7 @@
 import type { PuzzleState } from '../../../types/puzzle';
 import type { Hint, HintHighlight } from '../../../types/hints';
 import type { SchemaApplication } from '../types';
-import { countSolutions } from '../../search';
+import { countSolutionsAsync } from '../../search';
 import { getCached, makeVerificationKey, setCached } from './verificationCache';
 
 export type VerifiedCellAssignment = {
@@ -46,6 +46,8 @@ export type VerifySchemaHintOptions = {
   perCheckTimeoutMs: number;
   /** Count at most this many solutions. For forcedness you only need 1. */
   maxSolutionsToFind: number; // should be 1
+  /** Optional cancellation (Stop button / cancelled solve run). */
+  signal?: AbortSignal;
 };
 
 function cloneCells(cells: PuzzleState['cells']): PuzzleState['cells'] {
@@ -65,11 +67,11 @@ function applyAssumption(
   return { ...state, cells: next };
 }
 
-export function verifyForcedCell(
+export async function verifyForcedCell(
   state: PuzzleState,
   assignment: VerifiedCellAssignment,
   options: VerifySchemaHintOptions
-): VerifiedCandidate {
+): Promise<VerifiedCandidate> {
   const cacheKey = makeVerificationKey(state, assignment);
   const cached = getCached(cacheKey);
   if (cached) return cached;
@@ -107,15 +109,17 @@ export function verifyForcedCell(
     return out;
   }
 
-  const res = countSolutions(assumedState, {
+  const res = await countSolutionsAsync(assumedState, {
     timeoutMs: options.perCheckTimeoutMs,
     maxCount: options.maxSolutionsToFind,
+    signal: options.signal,
+    yieldEveryMs: 16,
   });
 
   proof.push({
     kind: 'search-result',
     solutionsFound: res.count,
-    timedOut: res.timedOut,
+    timedOut: res.timedOut || res.aborted,
     cappedAtMax: res.cappedAtMax,
     timeoutMs: options.perCheckTimeoutMs,
     maxCount: options.maxSolutionsToFind,
@@ -123,7 +127,7 @@ export function verifyForcedCell(
 
   // Soundness rules:
   // - Only conclude forced if we found 0 solutions AND we did NOT time out AND did NOT cap.
-  if (res.count === 0 && !res.timedOut && !res.cappedAtMax) {
+  if (res.count === 0 && !res.timedOut && !res.cappedAtMax && !res.aborted) {
     proof.push({
       kind: 'conclusion',
       conclusion: assignment.value === 'star' ? 'forced-star' : 'forced-cross',
@@ -161,13 +165,13 @@ export type VerifySchemaApplicationResult =
   | { kind: 'no-verified-deductions' }
   | { kind: 'verified-hint'; hint: Hint };
 
-export function verifyAndBuildSchemaHint(
+export async function verifyAndBuildSchemaHint(
   state: PuzzleState,
   app: SchemaApplication,
   baseExplanation: string,
   baseHighlights: HintHighlight | undefined,
   options: VerifySchemaHintOptions
-): VerifySchemaApplicationResult {
+): Promise<VerifySchemaApplicationResult> {
   const size = state.def.size;
 
   // Convert schema deductions to row/col + proposed value
@@ -197,7 +201,10 @@ export function verifyAndBuildSchemaHint(
   // Strategy: verify in order and stop after the first proved deduction.
   // (You can extend to verify more later.)
   for (const a of filtered) {
-    const verified = verifyForcedCell(state, a, options);
+    if (options.signal?.aborted) {
+      return { kind: 'no-verified-deductions' };
+    }
+    const verified = await verifyForcedCell(state, a, options);
     if (verified.status !== 'proved') {
       continue;
     }
