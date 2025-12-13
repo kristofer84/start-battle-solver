@@ -1130,7 +1130,13 @@ describe('Property 21 (Extended): Hints are sound for all techniques', () => {
     fc.assert(
       fc.property(validPuzzleStateArb, (state) => {
         for (const technique of techniquesInOrder) {
-          const hint = technique.findHint(state);
+          const hintOrPromise = technique.findHint(state);
+          // This property is intentionally synchronous (fast-check sync property).
+          // Skip async techniques here (they are covered by other integration tests).
+          if (hintOrPromise instanceof Promise) {
+            continue;
+          }
+          const hint = hintOrPromise;
           
           if (hint) {
             // Create a copy and apply the hint

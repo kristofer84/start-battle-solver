@@ -11,6 +11,7 @@ import type { TechniqueResult, Deduction, CellDeduction } from '../../types/dedu
 import { findBestSchemaApplication, getAllSchemaApplications } from '../schemas/runtime';
 import { verifyAndBuildSchemaHint } from '../schemas/verification/schemaHintVerifier';
 import { validateState } from '../validation';
+import { getSolveSignal } from '../../store/puzzleStore';
 // Ensure schemas are registered when this technique is loaded
 import { initSchemas } from '../schemas/index';
 initSchemas();
@@ -31,7 +32,7 @@ export async function findSchemaBasedHint(state: PuzzleState): Promise<Hint | nu
 
   if (!best) return null;
 
-  const verified = verifyAndBuildSchemaHint(
+  const verified = await verifyAndBuildSchemaHint(
     state,
     best.app,
     best.baseExplanation,
@@ -39,6 +40,7 @@ export async function findSchemaBasedHint(state: PuzzleState): Promise<Hint | nu
     {
       perCheckTimeoutMs: 250,
       maxSolutionsToFind: 1,
+      signal: getSolveSignal() ?? undefined,
     }
   );
 

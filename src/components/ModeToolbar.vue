@@ -26,6 +26,7 @@ const emit = defineEmits<{
   (e: 'requestHint'): void;
   (e: 'applyHint'): void;
   (e: 'trySolve'): void;
+  (e: 'stopSolve'): void;
   (e: 'clear'): void;
   (e: 'toggleRowColNumbers'): void;
   (e: 'toggleAreaLabels'): void;
@@ -157,6 +158,15 @@ const emit = defineEmits<{
       >
         <span class="material-symbols-outlined btn__icon" aria-hidden="true">auto_awesome</span>
         <span class="btn__label">Try solve</span>
+      </button>
+      <button
+        v-if="store.isThinking || store.isAutoSolving"
+        type="button"
+        class="btn secondary"
+        @click="emit('stopSolve')"
+      >
+        <span class="material-symbols-outlined btn__icon" aria-hidden="true">stop</span>
+        <span class="btn__label">Stop</span>
       </button>
     </div>
   </div>
