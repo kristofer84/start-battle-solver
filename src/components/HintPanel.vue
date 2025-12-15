@@ -225,9 +225,9 @@ const hiddenDeductionCount = computed(() => {
 .hint-details {
   margin-top: 0.75rem;
   padding: 0.75rem;
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 8px;
-  background: #f8fafc;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(2, 6, 23, 0.92));
 }
 
 .hint-details__title {
@@ -237,7 +237,7 @@ const hiddenDeductionCount = computed(() => {
 
 .hint-details__subtitle {
   margin: 0 0 0.35rem 0;
-  color: #4b5563;
+  color: #cbd5e1;
   font-size: 0.9rem;
 }
 
