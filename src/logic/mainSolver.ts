@@ -30,7 +30,6 @@ function nextHintId() {
   return `main-solver-${hintCounter}`;
 }
 
-
 /**
  * Analyze collected deductions and find a clear hint (100% certain)
  * Returns null if no clear hint can be made
@@ -103,110 +102,137 @@ function resolveCellDeductions(
     }
   }
 
-  // Group by type
+  // Separate by type and keep technique info per cell
   const stars: Coords[] = [];
   const crosses: Coords[] = [];
+  const techniqueByCell = new Map<string, string>();
   const techniques = new Set<string>();
 
   for (const ded of cellMap.values()) {
+    const key = `${ded.cell.row},${ded.cell.col}`;
+    techniqueByCell.set(key, ded.technique);
+    techniques.add(ded.technique);
+
     if (ded.type === 'forceStar') {
       stars.push(ded.cell);
     } else {
       crosses.push(ded.cell);
     }
-    techniques.add(ded.technique);
   }
 
   if (stars.length === 0 && crosses.length === 0) {
     return null;
   }
 
-  // Create hint with all cell deductions
+  // Only create hints for currently empty cells
+  const starCells = stars.filter((c) => state.cells[c.row][c.col] === 'empty');
+  const crossCells = crosses.filter((c) => state.cells[c.row][c.col] === 'empty');
+
+  if (starCells.length === 0 && crossCells.length === 0) {
+    return null;
+  }
+
+  const MAX_HINT_CELLS = 10;
+
+  function tryMakeHint(
+    resultCells: Coords[],
+    schemaCellTypes: Map<string, 'star' | 'cross'>,
+    hintTechniques: Set<string>
+  ): Hint | null {
+    if (resultCells.length === 0) return null;
+
+    // Safety: don't create huge hints
+    if (resultCells.length > MAX_HINT_CELLS) return null;
+
+    // Double-check target cells are empty
+    for (const cell of resultCells) {
+      if (state.cells[cell.row][cell.col] !== 'empty') return null;
+    }
+
+    const placingStars = resultCells.some(
+      (cell) => schemaCellTypes.get(`${cell.row},${cell.col}`) === 'star'
+    );
+    const placingCrosses = resultCells.some(
+      (cell) => schemaCellTypes.get(`${cell.row},${cell.col}`) === 'cross'
+    );
+
+    const kind: 'place-star' | 'place-cross' = placingStars
+      ? 'place-star'
+      : 'place-cross';
+
+    const explanation =
+      hintTechniques.size === 1
+        ? `Combined deductions from ${Array.from(hintTechniques)[0]} technique.`
+        : `Combined deductions from ${hintTechniques.size} techniques: ${Array.from(
+            hintTechniques
+          ).join(', ')}.`;
+
+    // Apply to a test state and validate
+    const testState: PuzzleState = {
+      ...state,
+      cells: state.cells.map((row) => [...row]),
+    };
+
+    for (const cell of resultCells) {
+      const targetValue =
+        schemaCellTypes.get(`${cell.row},${cell.col}`) === 'star'
+          ? 'star'
+          : 'cross';
+      testState.cells[cell.row][cell.col] = targetValue;
+    }
+
+    const validationErrors = validateState(testState);
+    if (validationErrors.length > 0) return null;
+
+    return {
+      id: nextHintId(),
+      kind,
+      technique: Array.from(hintTechniques)[0] as any, // primary technique
+      resultCells,
+      explanation,
+      schemaCellTypes: placingStars && placingCrosses ? schemaCellTypes : undefined,
+    };
+  }
+
+  // 1) Prefer a single-cell hint (usually most useful).
+  // Try stars first, then crosses.
+  for (const cell of starCells) {
+    const key = `${cell.row},${cell.col}`;
+    const schemaCellTypes = new Map<string, 'star' | 'cross'>([[key, 'star']]);
+    const hintTechniques = new Set<string>([techniqueByCell.get(key) || 'unknown']);
+    const hint = tryMakeHint([cell], schemaCellTypes, hintTechniques);
+    if (hint) return hint;
+  }
+  for (const cell of crossCells) {
+    const key = `${cell.row},${cell.col}`;
+    const schemaCellTypes = new Map<string, 'star' | 'cross'>([[key, 'cross']]);
+    const hintTechniques = new Set<string>([techniqueByCell.get(key) || 'unknown']);
+    const hint = tryMakeHint([cell], schemaCellTypes, hintTechniques);
+    if (hint) return hint;
+  }
+
+  // 2) Fall back to a small bundle (kept under MAX_HINT_CELLS).
   const resultCells: Coords[] = [];
   const schemaCellTypes = new Map<string, 'star' | 'cross'>();
+  const hintTechniques = new Set<string>();
 
-  for (const cell of stars) {
-    if (state.cells[cell.row][cell.col] === 'empty') {
-      resultCells.push(cell);
-      schemaCellTypes.set(`${cell.row},${cell.col}`, 'star');
-    }
+  // Add stars first, then crosses, up to MAX_HINT_CELLS.
+  for (const cell of starCells) {
+    if (resultCells.length >= MAX_HINT_CELLS) break;
+    const key = `${cell.row},${cell.col}`;
+    resultCells.push(cell);
+    schemaCellTypes.set(key, 'star');
+    hintTechniques.add(techniqueByCell.get(key) || 'unknown');
+  }
+  for (const cell of crossCells) {
+    if (resultCells.length >= MAX_HINT_CELLS) break;
+    const key = `${cell.row},${cell.col}`;
+    resultCells.push(cell);
+    schemaCellTypes.set(key, 'cross');
+    hintTechniques.add(techniqueByCell.get(key) || 'unknown');
   }
 
-  for (const cell of crosses) {
-    if (state.cells[cell.row][cell.col] === 'empty') {
-      resultCells.push(cell);
-      schemaCellTypes.set(`${cell.row},${cell.col}`, 'cross');
-    }
-  }
-
-  if (resultCells.length === 0) {
-    return null;
-  }
-
-  // Safety check: Don't create hints with too many cells
-  // Large hints are likely errors or unverified deductions
-  // Limit to a reasonable number (e.g., 10 cells max)
-  const MAX_HINT_CELLS = 10;
-  if (resultCells.length > MAX_HINT_CELLS) {
-    console.warn(
-      `[MAIN SOLVER] Too many cells in hint (${resultCells.length}), likely unverified deductions. Skipping.`
-    );
-    return null;
-  }
-
-  // Determine hint kind based on what we're actually placing
-  // (not just what deductions exist, but what cells are actually empty)
-  const placingStars = resultCells.some(cell => schemaCellTypes.get(`${cell.row},${cell.col}`) === 'star');
-  const placingCrosses = resultCells.some(cell => schemaCellTypes.get(`${cell.row},${cell.col}`) === 'cross');
-  
-  const kind: 'place-star' | 'place-cross' =
-    placingStars ? 'place-star' : 'place-cross';
-
-  const explanation =
-    techniques.size === 1
-      ? `Combined deductions from ${Array.from(techniques)[0]} technique.`
-      : `Combined deductions from ${techniques.size} techniques: ${Array.from(techniques).join(', ')}.`;
-
-  // Validate that applying this hint won't create immediate conflicts
-  // Check each result cell to ensure it's actually empty
-  for (const cell of resultCells) {
-    if (state.cells[cell.row][cell.col] !== 'empty') {
-      // This should have been filtered out, but double-check
-      console.error(
-        `[MAIN SOLVER] Warning: Hint tries to place on non-empty cell (${cell.row},${cell.col}) which is ${state.cells[cell.row][cell.col]}`
-      );
-      return null;
-    }
-  }
-
-  // Validate that applying this hint won't create validation errors
-  // Create a test state with the hint applied
-  const testState: PuzzleState = {
-    ...state,
-    cells: state.cells.map(row => [...row]),
-  };
-  
-  for (const cell of resultCells) {
-    const targetValue = schemaCellTypes.get(`${cell.row},${cell.col}`) === 'star' ? 'star' : 'cross';
-    testState.cells[cell.row][cell.col] = targetValue;
-  }
-  
-  const validationErrors = validateState(testState);
-  if (validationErrors.length > 0) {
-    console.error(
-      `[MAIN SOLVER] Warning: Hint would create validation errors: ${validationErrors.join('; ')}`
-    );
-    return null;
-  }
-
-  return {
-    id: nextHintId(),
-    kind,
-    technique: Array.from(techniques)[0] as any, // Use first technique as primary
-    resultCells,
-    explanation,
-    schemaCellTypes: placingStars && placingCrosses ? schemaCellTypes : undefined,
-  };
+  return tryMakeHint(resultCells, schemaCellTypes, hintTechniques);
 }
 
 /**
@@ -612,4 +638,3 @@ function resolveCrossConstraints(
 
   return null;
 }
-
