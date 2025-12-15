@@ -35,14 +35,23 @@ function cellRegionId(row: number, col: number): number {
   return props.state.def.regions[row][col];
 }
 
-function isHighlightedCell(row: number, col: number): boolean {
-  // Only highlight cells that will receive a star or cross
-  return props.resultCells?.some((c) => c.row === row && c.col === col) ?? false;
+function isSupportingHighlightedCell(row: number, col: number): boolean {
+  const h = props.hintHighlight;
+  return h?.cells?.some((c) => c.row === row && c.col === col) ?? false;
 }
 
-function getHighlightType(row: number, col: number): 'cells' | null {
-  // Only return type for cells that will receive a star or cross
+function isHighlightedCell(row: number, col: number): boolean {
+  // Highlight result cells and supporting deduction cells.
+  return (
+    (props.resultCells?.some((c) => c.row === row && c.col === col) ?? false) ||
+    isSupportingHighlightedCell(row, col)
+  );
+}
+
+function getHighlightType(row: number, col: number): 'cells' | 'support' | null {
+  // Result cells take precedence over supporting cells.
   if (props.resultCells?.some((c) => c.row === row && c.col === col)) return 'cells';
+  if (isSupportingHighlightedCell(row, col)) return 'support';
   return null;
 }
 

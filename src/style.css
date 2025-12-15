@@ -751,6 +751,20 @@ body {
   filter: brightness(1.4);
 }
 
+/* Supporting deduction highlight (purple) */
+.board-cell.highlight-support {
+  box-shadow: inset 0 0 0 3px rgba(167, 139, 250, 1) !important;
+  filter: brightness(1.25);
+}
+
+/* Ensure support highlight remains visible over region borders */
+.board-cell.highlight-support.region-border-top,
+.board-cell.highlight-support.region-border-right,
+.board-cell.highlight-support.region-border-bottom,
+.board-cell.highlight-support.region-border-left {
+  box-shadow: inset 0 0 0 3px rgba(167, 139, 250, 1) !important;
+}
+
 /* Row highlight - brighten cells in highlighted row */
 .board-cell.highlight-row {
   filter: brightness(1.4);

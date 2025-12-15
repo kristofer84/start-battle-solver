@@ -204,7 +204,7 @@ const hiddenDeductionCount = computed(() => {
             v-if="hint.highlights?.cells?.length"
             class="hint-chip cells"
           >
-            Cells: {{ hint.highlights.cells.length }}
+            Supporting cells: {{ hint.highlights.cells.length }}
           </span>
         </div>
       </div>

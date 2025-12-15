@@ -38,6 +38,12 @@ function formatCellList(cells: Coords[]): string {
 export interface MainSolverAnalysisResult {
   hint: Hint | null;
   validDeductions: Deduction[];
+  supportingDeductions: Deduction[];
+}
+
+interface MainSolverHintResult {
+  hint: Hint;
+  supportingDeductions: Deduction[];
 }
 
 /**
@@ -51,6 +57,153 @@ export function analyzeDeductions(
   return analyzeDeductionsWithContext(deductions, state).hint;
 }
 
+function mergeHintHighlights(a?: Hint['highlights'], b?: Hint['highlights']): Hint['highlights'] | undefined {
+  if (!a && !b) return undefined;
+  const merged: Hint['highlights'] = {
+    cells: [],
+    rows: [],
+    cols: [],
+    regions: [],
+  };
+
+  function addUnique<T>(target: T[], values?: T[]) {
+    if (!values) return;
+    for (const v of values) {
+      if (!target.includes(v)) target.push(v);
+    }
+  }
+
+  addUnique(merged.cells!, a?.cells);
+  addUnique(merged.cells!, b?.cells);
+  addUnique(merged.rows!, a?.rows);
+  addUnique(merged.rows!, b?.rows);
+  addUnique(merged.cols!, a?.cols);
+  addUnique(merged.cols!, b?.cols);
+  addUnique(merged.regions!, a?.regions);
+  addUnique(merged.regions!, b?.regions);
+
+  // Trim empty arrays to keep payload small / semantics clear.
+  if (merged.cells?.length === 0) delete merged.cells;
+  if (merged.rows?.length === 0) delete merged.rows;
+  if (merged.cols?.length === 0) delete merged.cols;
+  if (merged.regions?.length === 0) delete merged.regions;
+
+  return merged;
+}
+
+function deductionToHighlight(ded: Deduction, state: PuzzleState): Required<Hint['highlights']> {
+  const out: Required<Hint['highlights']> = {
+    cells: [],
+    rows: [],
+    cols: [],
+    regions: [],
+  };
+
+  function addCell(cell: Coords) {
+    out.cells.push(cell);
+    if (cell.row >= 0 && cell.row < state.def.size) out.rows.push(cell.row);
+    if (cell.col >= 0 && cell.col < state.def.size) out.cols.push(cell.col);
+    const regionId = state.def.regions[cell.row]?.[cell.col];
+    if (regionId !== undefined) out.regions.push(regionId);
+  }
+
+  function addCells(cells: Coords[]) {
+    for (const c of cells) addCell(c);
+  }
+
+  switch (ded.kind) {
+    case 'cell': {
+      addCell(ded.cell);
+      break;
+    }
+    case 'block': {
+      const baseRow = ded.technique === 'square-counting' ? ded.block.bRow : 2 * ded.block.bRow;
+      const baseCol = ded.technique === 'square-counting' ? ded.block.bCol : 2 * ded.block.bCol;
+      addCells([
+        { row: baseRow, col: baseCol },
+        { row: baseRow, col: baseCol + 1 },
+        { row: baseRow + 1, col: baseCol },
+        { row: baseRow + 1, col: baseCol + 1 },
+      ]);
+      break;
+    }
+    case 'area': {
+      if (ded.areaType === 'row') out.rows.push(ded.areaId);
+      if (ded.areaType === 'column') out.cols.push(ded.areaId);
+      if (ded.areaType === 'region') out.regions.push(ded.areaId);
+      addCells(ded.candidateCells);
+      break;
+    }
+    case 'exclusive-set': {
+      addCells(ded.cells);
+      break;
+    }
+    case 'area-relation': {
+      for (const area of ded.areas) {
+        if (area.areaType === 'row') out.rows.push(area.areaId);
+        if (area.areaType === 'column') out.cols.push(area.areaId);
+        if (area.areaType === 'region') out.regions.push(area.areaId);
+        addCells(area.candidateCells);
+      }
+      break;
+    }
+  }
+
+  // Deduplicate primitives.
+  out.rows = Array.from(new Set(out.rows));
+  out.cols = Array.from(new Set(out.cols));
+  out.regions = Array.from(new Set(out.regions));
+  // Dedup cells by key.
+  const seen = new Set<string>();
+  out.cells = out.cells.filter((c) => {
+    const key = `${c.row},${c.col}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return out;
+}
+
+function buildSupportingHighlights(deductions: Deduction[], state: PuzzleState): Hint['highlights'] | undefined {
+  if (deductions.length === 0) return undefined;
+
+  const merged: Required<Hint['highlights']> = {
+    cells: [],
+    rows: [],
+    cols: [],
+    regions: [],
+  };
+
+  for (const d of deductions) {
+    const h = deductionToHighlight(d, state);
+    merged.cells.push(...h.cells);
+    merged.rows.push(...h.rows);
+    merged.cols.push(...h.cols);
+    merged.regions.push(...h.regions);
+  }
+
+  // Deduplicate.
+  merged.rows = Array.from(new Set(merged.rows));
+  merged.cols = Array.from(new Set(merged.cols));
+  merged.regions = Array.from(new Set(merged.regions));
+  const seenCells = new Set<string>();
+  merged.cells = merged.cells.filter((c) => {
+    const key = `${c.row},${c.col}`;
+    if (seenCells.has(key)) return false;
+    seenCells.add(key);
+    return true;
+  });
+
+  // Trim empty arrays.
+  const out: Hint['highlights'] = { ...merged };
+  if (out.cells?.length === 0) delete out.cells;
+  if (out.rows?.length === 0) delete out.rows;
+  if (out.cols?.length === 0) delete out.cols;
+  if (out.regions?.length === 0) delete out.regions;
+  return out;
+}
+
 export function analyzeDeductionsWithContext(
   deductions: Deduction[],
   state: PuzzleState
@@ -61,33 +214,61 @@ export function analyzeDeductionsWithContext(
 
   // Strategy 1: Cell-level resolution
   const cellHint = resolveCellDeductions(validDeductions, state, totalValidDeductions);
-  if (cellHint) return { hint: cellHint, validDeductions };
+  if (cellHint) {
+    const supportingHighlights = buildSupportingHighlights(cellHint.supportingDeductions, state);
+    cellHint.hint.highlights = mergeHintHighlights(cellHint.hint.highlights, supportingHighlights);
+    return { hint: cellHint.hint, validDeductions, supportingDeductions: cellHint.supportingDeductions };
+  }
 
   // Strategy 2: Area narrowing
   const areaHint = resolveAreaDeductions(validDeductions, state, totalValidDeductions);
-  if (areaHint) return { hint: areaHint, validDeductions };
+  if (areaHint) {
+    const supportingHighlights = buildSupportingHighlights(areaHint.supportingDeductions, state);
+    areaHint.hint.highlights = mergeHintHighlights(areaHint.hint.highlights, supportingHighlights);
+    return { hint: areaHint.hint, validDeductions, supportingDeductions: areaHint.supportingDeductions };
+  }
 
   // Strategy 3: Block resolution
   const blockHint = resolveBlockDeductions(validDeductions, state, totalValidDeductions);
-  if (blockHint) return { hint: blockHint, validDeductions };
+  if (blockHint) {
+    const supportingHighlights = buildSupportingHighlights(blockHint.supportingDeductions, state);
+    blockHint.hint.highlights = mergeHintHighlights(blockHint.hint.highlights, supportingHighlights);
+    return { hint: blockHint.hint, validDeductions, supportingDeductions: blockHint.supportingDeductions };
+  }
 
   // Strategy 4: Exclusive set resolution
   const exclusiveHint = resolveExclusiveSetDeductions(validDeductions, state, totalValidDeductions);
-  if (exclusiveHint) return { hint: exclusiveHint, validDeductions };
+  if (exclusiveHint) {
+    const supportingHighlights = buildSupportingHighlights(exclusiveHint.supportingDeductions, state);
+    exclusiveHint.hint.highlights = mergeHintHighlights(exclusiveHint.hint.highlights, supportingHighlights);
+    return { hint: exclusiveHint.hint, validDeductions, supportingDeductions: exclusiveHint.supportingDeductions };
+  }
 
   // Strategy 5: Bounds resolution (upgrade bounds to exact counts)
   const boundsHint = resolveBoundsDeductions(validDeductions, state, totalValidDeductions);
-  if (boundsHint) return { hint: boundsHint, validDeductions };
+  if (boundsHint) {
+    const supportingHighlights = buildSupportingHighlights(boundsHint.supportingDeductions, state);
+    boundsHint.hint.highlights = mergeHintHighlights(boundsHint.hint.highlights, supportingHighlights);
+    return { hint: boundsHint.hint, validDeductions, supportingDeductions: boundsHint.supportingDeductions };
+  }
 
   // Strategy 6: Area relation resolution
   const relationHint = resolveAreaRelationDeductions(validDeductions, state, totalValidDeductions);
-  if (relationHint) return { hint: relationHint, validDeductions };
+  if (relationHint) {
+    const supportingHighlights = buildSupportingHighlights(relationHint.supportingDeductions, state);
+    relationHint.hint.highlights = mergeHintHighlights(relationHint.hint.highlights, supportingHighlights);
+    return { hint: relationHint.hint, validDeductions, supportingDeductions: relationHint.supportingDeductions };
+  }
 
   // Strategy 7: Cross-constraint resolution
   const crossHint = resolveCrossConstraints(validDeductions, state, totalValidDeductions);
-  if (crossHint) return { hint: crossHint, validDeductions };
+  if (crossHint) {
+    const supportingHighlights = buildSupportingHighlights(crossHint.supportingDeductions, state);
+    crossHint.hint.highlights = mergeHintHighlights(crossHint.hint.highlights, supportingHighlights);
+    return { hint: crossHint.hint, validDeductions, supportingDeductions: crossHint.supportingDeductions };
+  }
 
-  return { hint: null, validDeductions };
+  return { hint: null, validDeductions, supportingDeductions: [] };
 }
 
 /**
@@ -98,7 +279,7 @@ function resolveCellDeductions(
   deductions: Deduction[],
   state: PuzzleState,
   totalValidDeductions: number
-): Hint | null {
+): MainSolverHintResult | null {
   const cellDeductions = extractCellDeductions(deductions);
   const cellMap = new Map<string, CellDeduction>();
 
@@ -156,8 +337,9 @@ function resolveCellDeductions(
   function tryMakeHint(
     resultCells: Coords[],
     schemaCellTypes: Map<string, 'star' | 'cross'>,
-    hintTechniques: Set<string>
-  ): Hint | null {
+    hintTechniques: Set<string>,
+    supportingDeductions: Deduction[]
+  ): MainSolverHintResult | null {
     if (resultCells.length === 0) return null;
 
     // Safety: don't create huge hints
@@ -222,13 +404,16 @@ function resolveCellDeductions(
     ];
 
     return {
-      id: nextHintId(),
-      kind,
-      technique: Array.from(hintTechniques)[0] as any, // primary technique
-      resultCells,
-      explanation,
-      details,
-      schemaCellTypes: placingStars && placingCrosses ? schemaCellTypes : undefined,
+      hint: {
+        id: nextHintId(),
+        kind,
+        technique: Array.from(hintTechniques)[0] as any, // primary technique
+        resultCells,
+        explanation,
+        details,
+        schemaCellTypes: placingStars && placingCrosses ? schemaCellTypes : undefined,
+      },
+      supportingDeductions,
     };
   }
 
@@ -238,14 +423,16 @@ function resolveCellDeductions(
     const key = `${cell.row},${cell.col}`;
     const schemaCellTypes = new Map<string, 'star' | 'cross'>([[key, 'star']]);
     const hintTechniques = new Set<string>([techniqueByCell.get(key) || 'unknown']);
-    const hint = tryMakeHint([cell], schemaCellTypes, hintTechniques);
+    const supporting = cellMap.get(key) ? [cellMap.get(key)!] : [];
+    const hint = tryMakeHint([cell], schemaCellTypes, hintTechniques, supporting);
     if (hint) return hint;
   }
   for (const cell of crossCells) {
     const key = `${cell.row},${cell.col}`;
     const schemaCellTypes = new Map<string, 'star' | 'cross'>([[key, 'cross']]);
     const hintTechniques = new Set<string>([techniqueByCell.get(key) || 'unknown']);
-    const hint = tryMakeHint([cell], schemaCellTypes, hintTechniques);
+    const supporting = cellMap.get(key) ? [cellMap.get(key)!] : [];
+    const hint = tryMakeHint([cell], schemaCellTypes, hintTechniques, supporting);
     if (hint) return hint;
   }
 
@@ -255,12 +442,15 @@ function resolveCellDeductions(
   const hintTechniques = new Set<string>();
 
   // Add stars first, then crosses, up to MAX_HINT_CELLS.
+  const supportingDeductions: Deduction[] = [];
   for (const cell of starCells) {
     if (resultCells.length >= MAX_HINT_CELLS) break;
     const key = `${cell.row},${cell.col}`;
     resultCells.push(cell);
     schemaCellTypes.set(key, 'star');
     hintTechniques.add(techniqueByCell.get(key) || 'unknown');
+    const ded = cellMap.get(key);
+    if (ded) supportingDeductions.push(ded);
   }
   for (const cell of crossCells) {
     if (resultCells.length >= MAX_HINT_CELLS) break;
@@ -268,9 +458,11 @@ function resolveCellDeductions(
     resultCells.push(cell);
     schemaCellTypes.set(key, 'cross');
     hintTechniques.add(techniqueByCell.get(key) || 'unknown');
+    const ded = cellMap.get(key);
+    if (ded) supportingDeductions.push(ded);
   }
 
-  return tryMakeHint(resultCells, schemaCellTypes, hintTechniques);
+  return tryMakeHint(resultCells, schemaCellTypes, hintTechniques, supportingDeductions);
 }
 
 /**
@@ -281,7 +473,7 @@ function resolveAreaDeductions(
   deductions: Deduction[],
   state: PuzzleState,
   totalValidDeductions: number
-): Hint | null {
+): MainSolverHintResult | null {
   const areaDeductions = deductions.filter(
     (d): d is AreaDeduction => d.kind === 'area'
   );
@@ -319,30 +511,36 @@ function resolveAreaDeductions(
     ) {
       // All remaining stars must be in this one cell
       return {
-        id: nextHintId(),
-        kind: 'place-star',
-        technique: ded.technique,
-        resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires ${ded.starsRequired} more star(s), and only one candidate cell remains.`}`,
-        details: [
-          `Combined ${totalValidDeductions} filtered deductions to reach an exact placement in ${ded.areaType} ${idToLetter(ded.areaId)}.`,
-          `Remaining candidate: ${formatCellList(emptyCandidates)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-star',
+          technique: ded.technique,
+          resultCells: emptyCandidates,
+          explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires ${ded.starsRequired} more star(s), and only one candidate cell remains.`}`,
+          details: [
+            `Combined ${totalValidDeductions} filtered deductions to reach an exact placement in ${ded.areaType} ${idToLetter(ded.areaId)}.`,
+            `Remaining candidate: ${formatCellList(emptyCandidates)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
 
     // If maxStars is 0 and there are candidates, they must all be crosses
     if (ded.maxStars === 0 && emptyCandidates.length > 0) {
       return {
-        id: nextHintId(),
-        kind: 'place-cross',
-        technique: ded.technique,
-        resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} cannot have any more stars.`}`,
-        details: [
-          `Filtered deductions (${totalValidDeductions}) show ${ded.areaType} ${idToLetter(ded.areaId)} is full.`,
-          `Mark remaining candidate cell(s) as crosses: ${formatCellList(emptyCandidates)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-cross',
+          technique: ded.technique,
+          resultCells: emptyCandidates,
+          explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} cannot have any more stars.`}`,
+          details: [
+            `Filtered deductions (${totalValidDeductions}) show ${ded.areaType} ${idToLetter(ded.areaId)} is full.`,
+            `Mark remaining candidate cell(s) as crosses: ${formatCellList(emptyCandidates)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
 
@@ -353,15 +551,18 @@ function resolveAreaDeductions(
       emptyCandidates.length === 1
     ) {
       return {
-        id: nextHintId(),
-        kind: 'place-star',
-        technique: ded.technique,
-        resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires at least ${ded.minStars} more star(s), and only one candidate cell remains.`}`,
-        details: [
-          `Main solver used ${totalValidDeductions} deductions to tighten bounds in ${ded.areaType} ${idToLetter(ded.areaId)}.`,
-          `Only one empty candidate fits the minimum requirement: ${formatCellList(emptyCandidates)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-star',
+          technique: ded.technique,
+          resultCells: emptyCandidates,
+          explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires at least ${ded.minStars} more star(s), and only one candidate cell remains.`}`,
+          details: [
+            `Main solver used ${totalValidDeductions} deductions to tighten bounds in ${ded.areaType} ${idToLetter(ded.areaId)}.`,
+            `Only one empty candidate fits the minimum requirement: ${formatCellList(emptyCandidates)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
   }
@@ -377,7 +578,7 @@ function resolveBlockDeductions(
   deductions: Deduction[],
   state: PuzzleState,
   totalValidDeductions: number
-): Hint | null {
+): MainSolverHintResult | null {
   const blockDeductions = deductions.filter(
     (d): d is BlockDeduction => d.kind === 'block'
   );
@@ -426,45 +627,54 @@ function resolveBlockDeductions(
       emptyBlockCells.length === 1
     ) {
       return {
-        id: nextHintId(),
-        kind: 'place-star',
-        technique: ded.technique,
-        resultCells: emptyBlockCells,
-        explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) requires ${ded.starsRequired} star(s), and only one empty cell remains.`}`,
-        details: [
-          `Refined ${totalValidDeductions} deductions to isolate the only valid cell inside block (${ded.block.bRow},${ded.block.bCol}).`,
-          `Remaining empty cell: ${formatCellList(emptyBlockCells)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-star',
+          technique: ded.technique,
+          resultCells: emptyBlockCells,
+          explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) requires ${ded.starsRequired} star(s), and only one empty cell remains.`}`,
+          details: [
+            `Refined ${totalValidDeductions} deductions to isolate the only valid cell inside block (${ded.block.bRow},${ded.block.bCol}).`,
+            `Remaining empty cell: ${formatCellList(emptyBlockCells)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
 
     // If maxStars is 0 and there are empty cells, they must be crosses
     if (ded.maxStars === 0 && emptyBlockCells.length > 0) {
       return {
-        id: nextHintId(),
-        kind: 'place-cross',
-        technique: ded.technique,
-        resultCells: emptyBlockCells,
-        explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) cannot have any stars.`}`,
-        details: [
-          `All ${emptyBlockCells.length} open cells in block (${ded.block.bRow},${ded.block.bCol}) are excluded after ${totalValidDeductions} deductions.`,
-          `Mark crosses at: ${formatCellList(emptyBlockCells)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-cross',
+          technique: ded.technique,
+          resultCells: emptyBlockCells,
+          explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) cannot have any stars.`}`,
+          details: [
+            `All ${emptyBlockCells.length} open cells in block (${ded.block.bRow},${ded.block.bCol}) are excluded after ${totalValidDeductions} deductions.`,
+            `Mark crosses at: ${formatCellList(emptyBlockCells)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
 
     // If maxStars is 1 and we already have 1 star, remaining must be crosses
     if (ded.maxStars === 1 && currentStars === 1 && emptyBlockCells.length > 0) {
       return {
-        id: nextHintId(),
-        kind: 'place-cross',
-        technique: ded.technique,
-        resultCells: emptyBlockCells,
-        explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) can have at most 1 star, and already has 1.`}`,
-        details: [
-          `Block (${ded.block.bRow},${ded.block.bCol}) already holds a star; ${emptyBlockCells.length} remaining cells must be crosses.`,
-          `Derived from ${totalValidDeductions} cleaned deductions.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-cross',
+          technique: ded.technique,
+          resultCells: emptyBlockCells,
+          explanation: `${ded.explanation || `Block (${ded.block.bRow},${ded.block.bCol}) can have at most 1 star, and already has 1.`}`,
+          details: [
+            `Block (${ded.block.bRow},${ded.block.bCol}) already holds a star; ${emptyBlockCells.length} remaining cells must be crosses.`,
+            `Derived from ${totalValidDeductions} cleaned deductions.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
   }
@@ -480,7 +690,7 @@ function resolveExclusiveSetDeductions(
   deductions: Deduction[],
   state: PuzzleState,
   totalValidDeductions: number
-): Hint | null {
+): MainSolverHintResult | null {
   const exclusiveDeductions = deductions.filter(
     (d): d is ExclusiveSetDeduction => d.kind === 'exclusive-set'
   );
@@ -498,30 +708,36 @@ function resolveExclusiveSetDeductions(
     // If only one empty cell left and we need one more star
     if (remainingStars === 1 && emptyCells.length === 1) {
       return {
-        id: nextHintId(),
-        kind: 'place-star',
-        technique: ded.technique,
-        resultCells: emptyCells,
-        explanation: `${ded.explanation || `Exclusive set requires ${ded.starsRequired} star(s), and only one candidate cell remains.`}`,
-        details: [
-          `Exclusive set narrowed to a single open cell after processing ${totalValidDeductions} deductions.`,
-          `Place the star at ${formatCellList(emptyCells)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-star',
+          technique: ded.technique,
+          resultCells: emptyCells,
+          explanation: `${ded.explanation || `Exclusive set requires ${ded.starsRequired} star(s), and only one candidate cell remains.`}`,
+          details: [
+            `Exclusive set narrowed to a single open cell after processing ${totalValidDeductions} deductions.`,
+            `Place the star at ${formatCellList(emptyCells)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
 
     // If we have enough stars, remaining cells must be crosses
     if (currentStars === ded.starsRequired && emptyCells.length > 0) {
       return {
-        id: nextHintId(),
-        kind: 'place-cross',
-        technique: ded.technique,
-        resultCells: emptyCells,
-        explanation: `${ded.explanation || `Exclusive set already has ${ded.starsRequired} star(s).`}`,
-        details: [
-          `All required stars found; remaining ${emptyCells.length} cell(s) in the set become crosses.`,
-          `Summary based on ${totalValidDeductions} filtered deductions.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-cross',
+          technique: ded.technique,
+          resultCells: emptyCells,
+          explanation: `${ded.explanation || `Exclusive set already has ${ded.starsRequired} star(s).`}`,
+          details: [
+            `All required stars found; remaining ${emptyCells.length} cell(s) in the set become crosses.`,
+            `Summary based on ${totalValidDeductions} filtered deductions.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
   }
@@ -537,7 +753,7 @@ function resolveBoundsDeductions(
   deductions: Deduction[],
   state: PuzzleState,
   totalValidDeductions: number
-): Hint | null {
+): MainSolverHintResult | null {
   const areaDeductions = deductions.filter(
     (d): d is AreaDeduction => d.kind === 'area'
   );
@@ -576,15 +792,18 @@ function resolveBoundsDeductions(
     ) {
       // All candidates must be stars
       return {
-        id: nextHintId(),
-        kind: 'place-star',
-        technique: ded.technique,
-        resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires exactly ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
-        details: [
-          `Bounds converged after ${totalValidDeductions} deductions: ${emptyCandidates.length} candidates left in ${ded.areaType} ${idToLetter(ded.areaId)}.`,
-          `Each remaining cell must be a star: ${formatCellList(emptyCandidates)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-star',
+          technique: ded.technique,
+          resultCells: emptyCandidates,
+          explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires exactly ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
+          details: [
+            `Bounds converged after ${totalValidDeductions} deductions: ${emptyCandidates.length} candidates left in ${ded.areaType} ${idToLetter(ded.areaId)}.`,
+            `Each remaining cell must be a star: ${formatCellList(emptyCandidates)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
 
@@ -595,15 +814,18 @@ function resolveBoundsDeductions(
       emptyCandidates.length === ded.minStars
     ) {
       return {
-        id: nextHintId(),
-        kind: 'place-star',
-        technique: ded.technique,
-        resultCells: emptyCandidates,
-        explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires at least ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
-        details: [
-          `Minimum star requirement matches remaining candidates in ${ded.areaType} ${idToLetter(ded.areaId)} after ${totalValidDeductions} deductions.`,
-          `Fill stars at: ${formatCellList(emptyCandidates)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-star',
+          technique: ded.technique,
+          resultCells: emptyCandidates,
+          explanation: `${ded.explanation || `Area ${ded.areaType} ${idToLetter(ded.areaId)} requires at least ${ded.minStars} more star(s) in ${emptyCandidates.length} candidate cell(s).`}`,
+          details: [
+            `Minimum star requirement matches remaining candidates in ${ded.areaType} ${idToLetter(ded.areaId)} after ${totalValidDeductions} deductions.`,
+            `Fill stars at: ${formatCellList(emptyCandidates)}.`,
+          ],
+        },
+        supportingDeductions: [ded],
       };
     }
   }
@@ -619,7 +841,7 @@ function resolveAreaRelationDeductions(
   deductions: Deduction[],
   state: PuzzleState,
   totalValidDeductions: number
-): Hint | null {
+): MainSolverHintResult | null {
   const relationDeductions = deductions.filter(
     (d): d is AreaRelationDeduction => d.kind === 'area-relation'
   );
@@ -656,15 +878,18 @@ function resolveAreaRelationDeductions(
 
     if (remainingStars === 1 && allCandidates.length === 1) {
       return {
-        id: nextHintId(),
-        kind: 'place-star',
-        technique: relation.technique,
-        resultCells: allCandidates,
-        explanation: `${relation.explanation || `Area relation requires ${relation.totalStars} total stars, and only one candidate cell remains across all areas.`}`,
-        details: [
-          `Linked areas left a single open cell after reviewing ${totalValidDeductions} deductions.`,
-          `Place the required star at ${formatCellList(allCandidates)}.`,
-        ],
+        hint: {
+          id: nextHintId(),
+          kind: 'place-star',
+          technique: relation.technique,
+          resultCells: allCandidates,
+          explanation: `${relation.explanation || `Area relation requires ${relation.totalStars} total stars, and only one candidate cell remains across all areas.`}`,
+          details: [
+            `Linked areas left a single open cell after reviewing ${totalValidDeductions} deductions.`,
+            `Place the required star at ${formatCellList(allCandidates)}.`,
+          ],
+        },
+        supportingDeductions: [relation],
       };
     }
   }
@@ -680,7 +905,7 @@ function resolveCrossConstraints(
   deductions: Deduction[],
   state: PuzzleState,
   totalValidDeductions: number
-): Hint | null {
+): MainSolverHintResult | null {
   // Example: If an area deduction says "at least 1 star in these cells"
   // and an exclusive set includes those cells with "exactly 1 star",
   // we can narrow down
@@ -713,15 +938,18 @@ function resolveCrossConstraints(
         // If there's only one cell in the exclusive set, it must be a star
         if (emptyExclusive.length === 1) {
           return {
-            id: nextHintId(),
-            kind: 'place-star',
-            technique: exclusive.technique,
-            resultCells: emptyExclusive,
-            explanation: `${exclusive.explanation || `Exclusive set within area requires exactly ${exclusive.starsRequired} star(s) in one candidate cell.`}`,
-            details: [
-              `Cross-checked ${totalValidDeductions} deductions to align area and exclusive-set constraints.`,
-              `Only ${formatCellList(emptyExclusive)} satisfies both conditions.`,
-            ],
+            hint: {
+              id: nextHintId(),
+              kind: 'place-star',
+              technique: exclusive.technique,
+              resultCells: emptyExclusive,
+              explanation: `${exclusive.explanation || `Exclusive set within area requires exactly ${exclusive.starsRequired} star(s) in one candidate cell.`}`,
+              details: [
+                `Cross-checked ${totalValidDeductions} deductions to align area and exclusive-set constraints.`,
+                `Only ${formatCellList(emptyExclusive)} satisfies both conditions.`,
+              ],
+            },
+            supportingDeductions: [area, exclusive],
           };
         }
       }

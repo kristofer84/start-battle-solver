@@ -389,7 +389,7 @@ export async function findNextHint(state: PuzzleState): Promise<Hint | null> {
 
         // After adding deductions, check if main solver can find a hint
         const analysis = analyzeDeductionsWithContext(accumulatedDeductions, state);
-        store.filteredDeductions = analysis.validDeductions;
+        store.filteredDeductions = analysis.hint ? analysis.supportingDeductions : analysis.validDeductions;
         if (analysis.hint) {
           const totalTimeMs = techEndTime - startTime;
           const message = analysis.hint.explanation || `Found hint by combining deductions from multiple techniques`;
